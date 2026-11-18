@@ -46,7 +46,7 @@ const MetricsDashboard = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         <div className="bg-white p-4 rounded shadow">
-          <h2 className="text-xl font-semibold mb-2">System Health</h2>
+          <h2 className="text-xl font-semibold mb-2">Service Metrics</h2>
           <p>
             Status:{' '}
             <span

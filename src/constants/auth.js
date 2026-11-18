@@ -1,5 +1,6 @@
 // Defines the various access roles available to workspace users.
 export const USER_ROLES = {
+  SUPER_ADMIN: 'SUPER_ADMIN',
   WORKSPACE_ADMIN: 'WORKSPACE_ADMIN',
   WORKSPACE_MANAGER: 'WORKSPACE_MANAGER',
   TECH_LEAD: 'TECH_LEAD',
@@ -110,6 +111,7 @@ export const PERMISSIONS = {
 
 // Maps each user role to its allowed set of functional permissions.
 export const ROLE_PERMISSIONS = {
+  [USER_ROLES.SUPER_ADMIN]: ['*'],
   [USER_ROLES.WORKSPACE_ADMIN]: ['*'],
   [USER_ROLES.WORKSPACE_MANAGER]: [
     PERMISSIONS.INVITE_USERS,

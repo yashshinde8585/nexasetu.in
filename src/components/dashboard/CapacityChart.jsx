@@ -48,8 +48,8 @@ const CapacityChart = React.memo(
               {data.map((entry, index) => (
                 <Cell
                   key={`cell-${index}`}
-                  fill={entry.name === user?.name ? '#10b981' : '#8b5cf6'}
-                  fillOpacity={entry.name === user?.name ? 1 : 0.8}
+                  fill={entry.name === user?.name ? '#10b981' : '#3b82f6'}
+                  fillOpacity={entry.name === user?.name ? 1 : 0.85}
                 />
               ))}
             </Bar>

@@ -23,16 +23,23 @@ export const getMembers = async (
   params = { page: 1, limit: 20, search: '' }
 ) => {
   const res = await apiClient.get(API_ENDPOINTS.TEAM.MEMBERS, { params });
-  const responseData = res.data || res;
+  const responseData = res?.data || res;
 
-  const rawItems = responseData.items || responseData.members || [];
+  const rawItems =
+    responseData?.items ||
+    responseData?.data?.items ||
+    responseData?.members ||
+    responseData?.data?.members ||
+    (Array.isArray(responseData) ? responseData : []);
   const normalizedItems = rawItems.map(normalizeMember);
 
   const legacyMembers = normalizedItems.filter(
     (item) => item.type !== 'invitation' && item.status !== 'Invited'
   );
   const rawInvitations =
-    responseData.invitations ||
+    responseData?.invitations ||
+    responseData?.data?.invitations ||
+    res?.invitations ||
     normalizedItems.filter(
       (item) => item.type === 'invitation' || item.status === 'Invited'
     );
@@ -47,15 +54,48 @@ export const getMembers = async (
       : null,
   }));
 
+  const pagination = res?.pagination || responseData?.pagination || {};
+  const total =
+    pagination.total ??
+    responseData?.total ??
+    res?.total ??
+    normalizedItems.length;
+  const page = pagination.page ?? responseData?.page ?? res?.page ?? 1;
+  const limit = pagination.limit ?? responseData?.limit ?? res?.limit ?? 20;
+  const pages =
+    pagination.pages ??
+    responseData?.pages ??
+    res?.pages ??
+    (Math.ceil(total / (limit || 1)) || 1);
+
+  const stats =
+    responseData?.stats ||
+    res?.stats ||
+    responseData?.data?.stats ||
+    res?.data?.stats ||
+    null;
+
   return {
     ...responseData,
     items: normalizedItems,
     members: legacyMembers,
     invitations: legacyInvitations,
-    stats: responseData.stats,
+    stats,
+    total,
+    page,
+    limit,
+    pages,
+    pagination: {
+      total,
+      page,
+      limit,
+      pages,
+    },
     data: {
       members: legacyMembers,
       invitations: legacyInvitations,
+      items: normalizedItems,
+      stats,
     },
   };
 };

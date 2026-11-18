@@ -111,30 +111,42 @@ const TLDashboard = () => {
 
   return (
     <div className="min-h-screen bg-background text-text p-4 lg:p-6 font-sans selection:bg-primary max-w-screen-2xl mx-auto flex flex-col gap-6">
-      <div className="flex border-b border-border-subtle overflow-x-auto scrollbar-none gap-1.5">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-xl lg:text-2xl font-bold tracking-tight text-text">
+            Team Lead Engineering Console
+          </h1>
+          <p className="text-xs sm:text-sm text-text-subtle">
+            Sprint orchestration, architecture dependencies, delivery bottlenecks, and service health.
+          </p>
+        </div>
+      </div>
+
+      <div className="flex border-b border-border-subtle overflow-x-auto scrollbar-none gap-1">
         {[
-          { id: 'overview', label: 'Overview', icon: <Layout size={12} /> },
-          { id: 'delivery', label: 'Delivery', icon: <BarChart2 size={12} /> },
-          { id: 'quality', label: 'Quality', icon: <ShieldCheck size={12} /> },
-          { id: 'code', label: 'Code', icon: <CodeIcon size={12} /> },
+          { id: 'overview', label: 'Overview', icon: <Layout size={14} /> },
+          { id: 'delivery', label: 'Delivery', icon: <BarChart2 size={14} /> },
+          { id: 'quality', label: 'Quality', icon: <ShieldCheck size={14} /> },
+          { id: 'code', label: 'Code', icon: <CodeIcon size={14} /> },
           {
             id: 'dependencies',
             label: 'Dependencies',
-            icon: <Network size={12} />,
+            icon: <Network size={14} />,
           },
-          { id: 'team', label: 'Team Capacity', icon: <Users size={12} /> },
+          { id: 'team', label: 'Team Capacity', icon: <Users size={14} /> },
           {
             id: 'insights',
             label: 'AI Insights',
-            icon: <Sparkles size={12} />,
+            icon: <Sparkles size={14} />,
           },
         ].map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-[9px] font-black uppercase tracking-widest transition-all cursor-pointer border-b-2 whitespace-nowrap ${
+            className={`flex items-center gap-2 px-3.5 py-2.5 text-xs font-medium transition-all cursor-pointer border-b-2 whitespace-nowrap ${
               activeTab === tab.id
-                ? 'border-secondary text-text bg-background-elevated'
+                ? 'border-secondary text-text bg-background-elevated/60 font-semibold'
                 : 'border-transparent text-text-subtle hover:text-text hover:bg-card'
             }`}
           >

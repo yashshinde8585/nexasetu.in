@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import toast from 'react-hot-toast';
+import { Check } from 'lucide-react';
 
 const Theme = () => {
   const { theme, accent, saveTheme } = useTheme();
@@ -10,181 +11,205 @@ const Theme = () => {
   const themes = [
     {
       id: 'obsidian',
-      name: 'Dark Mode',
-      desc: 'Optimized dark interface for low-light environments.',
-      colors: ['#000000', '#3b82f6', '#10b981'],
+      name: 'Dark Mode (Obsidian)',
+      desc: 'Optimized dark interface with Obsidian Black background, Deep Charcoal cards, and subtle borders.',
+      colors: ['#0B0D10', '#12161C', '#3B82F6'],
     },
     {
       id: 'amber',
-      name: 'Amber Mode',
-      desc: 'Focused professional display with warm amber tones.',
-      colors: ['#121212', '#f59e0b', '#ef4444'],
+      name: 'Amber Mode (Warm Dark)',
+      desc: 'Focused professional display with warm carbon surfaces and golden amber accents.',
+      colors: ['#121212', '#1A1A1A', '#F59E0B'],
     },
     {
       id: 'ghost',
-      name: 'Light Mode',
-      desc: 'Clean, light layout with high contrast for bright environments.',
-      colors: ['#F8FAFC', '#64748b', '#0369a1'],
+      name: 'Light Mode (Ghost)',
+      desc: 'Clean Snow White layout with high contrast for bright environments.',
+      colors: ['#F8FAFC', '#FFFFFF', '#2563EB'],
       light: true,
     },
   ];
 
+  const accents = [
+    {
+      id: 'blue',
+      name: 'Azure Blue',
+      hex: '#3B82F6',
+      desc: 'Official NexaSetu primary brand color',
+    },
+    {
+      id: 'emerald',
+      name: 'Emerald Green',
+      hex: '#10B981',
+      desc: 'Balanced engineering & growth accent',
+    },
+    {
+      id: 'amber',
+      name: 'Golden Amber',
+      hex: '#F59E0B',
+      desc: 'High-visibility warm accent',
+    },
+    {
+      id: 'purple',
+      name: 'Royal Purple',
+      hex: '#A855F7',
+      desc: 'Intelligence & creative accent',
+    },
+    {
+      id: 'rose',
+      name: 'Rose Pink',
+      hex: '#F43F5E',
+      desc: 'Modern vibrant accent',
+    },
+  ];
+
   return (
-    <div className="px-3 sm:px-4 lg:px-6 py-4">
-      <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in duration-700">
+    <div className="px-3 sm:px-4 lg:px-6 py-6 bg-background text-text min-h-screen">
+      <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in duration-500">
         {/* Header */}
-        <div
-          className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b pb-4"
-          style={{ borderColor: 'var(--color-border-subtle)' }}
-        >
-          <div className="space-y-1">
-            <h1
-              className="text-[14px] font-black tracking-widest uppercase"
-              style={{ color: 'var(--color-text)' }}
-            >
-              Appearance Settings
-            </h1>
-            <p
-              className="text-[9px] font-black uppercase tracking-[0.2em] max-w-xl"
-              style={{ color: 'var(--color-text-subtle)' }}
-            >
-              Customize the visual settings of your workspace dashboard.
-            </p>
-          </div>
+        <div className="space-y-1 border-b border-border-subtle pb-4">
+          <h1 className="text-xl font-bold tracking-tight text-text">
+            Appearance settings
+          </h1>
+          <p className="text-sm text-text-subtle">
+            Customize the theme and accent color for your NexaSetu workspace.
+          </p>
         </div>
 
-        {/* Configuration Grid */}
-        <div className="space-y-6">
-          {/* Theme & Accent Selection */}
-          <div className="space-y-6">
-            {/* Theme Grid */}
-            <section className="space-y-4">
-              <h2
-                className="text-[9px] font-black uppercase tracking-[0.2em]"
-                style={{ color: 'var(--color-text-subtle)' }}
-              >
-                Available Themes
-              </h2>
-              <div
-                className="grid grid-cols-1 sm:grid-cols-2 gap-px rounded overflow-hidden"
-                style={{
-                  backgroundColor: 'var(--color-border-subtle)',
-                  border: '1px solid var(--color-border-subtle)',
-                }}
-              >
-                {themes.map((t) => (
+        {/* Configuration Sections */}
+        <div className="space-y-8">
+          {/* 1. Theme Grid */}
+          <section className="space-y-3">
+            <h2 className="text-sm font-semibold text-text">
+              Workspace theme
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {themes.map((t) => {
+                const isSelected = selectedTheme === t.id;
+                return (
                   <button
                     key={t.id}
                     onClick={() => setSelectedTheme(t.id)}
-                    className="p-4 text-left transition-all relative group"
-                    style={{
-                      backgroundColor:
-                        selectedTheme === t.id
-                          ? 'var(--color-background-elevated)'
-                          : 'var(--color-background)',
-                    }}
+                    className={`p-4 text-left rounded-lg border transition-all cursor-pointer relative flex flex-col justify-between ${
+                      isSelected
+                        ? 'border-primary bg-background-elevated shadow-sm ring-1 ring-primary/40'
+                        : 'border-border-subtle bg-card hover:bg-background-elevated/50'
+                    }`}
                   >
-                    <div className="flex justify-between items-start mb-4">
-                      <div
-                        className="flex gap-1.5 p-1 rounded"
-                        style={{
-                          backgroundColor: 'var(--color-background-elevated)',
-                          border: '1px solid var(--color-border-subtle)',
-                        }}
-                      >
-                        {t.colors.map((c, i) => (
-                          <div
-                            key={i}
-                            className="w-2 h-2 rounded-sm"
-                            style={{ backgroundColor: c }}
-                          />
-                        ))}
-                      </div>
-                      {selectedTheme === t.id && (
-                        <div className="px-1.5 py-0.5 bg-primary/10 border border-primary/20 rounded text-[7px] font-black text-primary uppercase tracking-widest">
-                          ACTIVE
+                    <div>
+                      <div className="flex justify-between items-center mb-3">
+                        <div className="flex gap-1.5 p-1 rounded bg-background border border-border-subtler">
+                          {t.colors.map((c, i) => (
+                            <div
+                              key={i}
+                              className="w-3 h-3 rounded-xs"
+                              style={{ backgroundColor: c }}
+                            />
+                          ))}
                         </div>
+                        {isSelected && (
+                          <span className="px-2 py-0.5 bg-primary/10 border border-primary/20 rounded text-[11px] font-semibold text-primary">
+                            Active
+                          </span>
+                        )}
+                      </div>
+                      <h3 className="text-sm font-semibold text-text mb-1">
+                        {t.name}
+                      </h3>
+                      <p className="text-xs text-text-subtle leading-relaxed">
+                        {t.desc}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* 2. Accent Color Grid */}
+          <section className="space-y-3">
+            <div className="space-y-0.5">
+              <h2 className="text-sm font-semibold text-text">
+                Accent color
+              </h2>
+              <p className="text-xs text-text-subtle">
+                Personalizes highlights, active navigation markers, and interactive focus states.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              {accents.map((acc) => {
+                const isSelected = accentColor === acc.id;
+                return (
+                  <button
+                    key={acc.id}
+                    onClick={() => setAccentColor(acc.id)}
+                    className={`p-3 rounded-lg border transition-all cursor-pointer text-left flex flex-col justify-between gap-3 ${
+                      isSelected
+                        ? 'border-primary bg-background-elevated ring-1 ring-primary/40'
+                        : 'border-border-subtle bg-card hover:bg-background-elevated/50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div
+                        className="w-5 h-5 rounded-full flex items-center justify-center border border-white/20"
+                        style={{ backgroundColor: acc.hex }}
+                      >
+                        {isSelected && (
+                          <Check size={12} className="text-white stroke-[3]" />
+                        )}
+                      </div>
+                      {isSelected && (
+                        <span className="text-[10px] font-semibold text-primary">
+                          Selected
+                        </span>
                       )}
                     </div>
-                    <h3
-                      className="text-[12px] font-black uppercase mb-1"
-                      style={{ color: 'var(--color-text)' }}
-                    >
-                      {t.name}
-                    </h3>
-                    <p
-                      className="text-[8px] font-black uppercase tracking-[0.2em] max-w-[240px] whitespace-normal leading-relaxed"
-                      style={{ color: 'var(--color-text-subtle)' }}
-                    >
-                      {t.desc}
-                    </p>
-
-                    {selectedTheme === t.id && (
-                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary" />
-                    )}
+                    <div>
+                      <p className="text-xs font-semibold text-text">
+                        {acc.name}
+                      </p>
+                    </div>
                   </button>
-                ))}
-              </div>
-            </section>
-          </div>
+                );
+              })}
+            </div>
+          </section>
         </div>
 
-        {/* Footer */}
-        <footer
-          className="pt-6 border-t flex flex-col sm:flex-row justify-end items-center gap-4 text-[8px] font-black uppercase tracking-[0.2em]"
-          style={{
-            borderColor: 'var(--color-border-subtle)',
-            color: 'var(--color-text-subtle)',
-          }}
-        >
-          <div className="flex gap-2">
-            <button
-              onClick={() => {
-                setSelectedTheme(theme);
-                setAccentColor(accent);
-                toast.success('Appearance changes discarded.');
-              }}
-              className="h-9 px-4 rounded transition-all cursor-pointer"
-              style={{
-                border: '1px solid var(--color-border-subtle)',
-                color: 'var(--color-text-subtle)',
-              }}
-            >
-              Discard
-            </button>
-            <button
-              onClick={() => {
-                setSelectedTheme('obsidian');
-                setAccentColor('blue');
-                toast.success(
-                  'Default configuration selected. Click save to apply.'
-                );
-              }}
-              className="h-9 px-4 rounded transition-all cursor-pointer mr-1"
-              style={{
-                backgroundColor: 'var(--color-background-elevated)',
-                border: '1px solid var(--color-border-subtle)',
-                color: 'var(--color-text-muted)',
-              }}
-            >
-              Restore Defaults
-            </button>
-            <button
-              onClick={() => {
-                saveTheme(selectedTheme, accentColor);
-                toast.success('Appearance configuration saved successfully.');
-                setTimeout(() => window.location.reload(), 800);
-              }}
-              className="h-9 px-4 rounded transition-all cursor-pointer"
-              style={{
-                backgroundColor: 'var(--color-primary)',
-                color: 'var(--color-background)',
-                border: '1px solid var(--color-primary)',
-              }}
-            >
-              Save Theme
-            </button>
-          </div>
+        {/* Footer Actions */}
+        <footer className="pt-6 border-t border-border-subtle flex flex-col sm:flex-row justify-end items-center gap-3">
+          <button
+            onClick={() => {
+              setSelectedTheme(theme);
+              setAccentColor(accent);
+              toast.success('Appearance changes discarded.');
+            }}
+            className="w-full sm:w-auto h-9 px-4 rounded border border-border-subtle hover:bg-background-elevated text-xs font-medium text-text-subtle transition-all cursor-pointer"
+          >
+            Discard
+          </button>
+          <button
+            onClick={() => {
+              setSelectedTheme('obsidian');
+              setAccentColor('blue');
+              toast.success(
+                'Default configuration selected. Click save to apply.'
+              );
+            }}
+            className="w-full sm:w-auto h-9 px-4 rounded border border-border-subtle bg-background-elevated hover:bg-background-light text-xs font-medium text-text transition-all cursor-pointer"
+          >
+            Restore defaults
+          </button>
+          <button
+            onClick={() => {
+              saveTheme(selectedTheme, accentColor);
+              toast.success('Appearance configuration saved successfully.');
+              setTimeout(() => window.location.reload(), 600);
+            }}
+            className="w-full sm:w-auto h-9 px-5 rounded bg-primary hover:bg-primary-dark text-white text-xs font-semibold shadow-sm transition-all active:scale-95 cursor-pointer"
+          >
+            Save theme
+          </button>
         </footer>
       </div>
     </div>

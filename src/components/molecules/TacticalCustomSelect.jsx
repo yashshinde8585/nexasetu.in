@@ -43,7 +43,7 @@ const TacticalCustomSelect = ({
   return (
     <div className="relative w-full" ref={dropdownRef}>
       {label && (
-        <label className="text-[9px] font-black text-text-subtle uppercase tracking-[0.2em] ml-1 mb-2 block">
+        <label className="text-xs font-semibold text-text-subtle uppercase tracking-wider ml-1 mb-2 block">
           {label}
         </label>
       )}
@@ -52,13 +52,13 @@ const TacticalCustomSelect = ({
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className={`w-full min-h-[40px] bg-background-elevated border transition-all px-4 py-2 flex items-center justify-between group outline-none rounded-none ${
+          className={`w-full min-h-[40px] bg-background-elevated border transition-all px-4 py-2 flex items-center justify-between group outline-none rounded-lg cursor-pointer ${
             isOpen
-              ? 'border-primary/50'
+              ? 'border-primary'
               : 'border-border-subtle hover:border-border'
           }`}
         >
-          <div className="text-[10px] font-black text-text uppercase tracking-widest truncate flex-1 text-left">
+          <div className="text-xs sm:text-sm font-medium text-text uppercase tracking-wide truncate flex-1 text-left">
             {currentOptionLabel}
           </div>
           <div className="flex items-center gap-3 ml-2">
@@ -77,7 +77,7 @@ const TacticalCustomSelect = ({
         </button>
 
         {isOpen && (
-          <div className="absolute top-full left-0 w-full mt-1 bg-background-elevated border border-border-subtle z-[999] max-h-[300px] overflow-y-auto scrollbar-none shadow-2xl block">
+          <div className="absolute top-full left-0 w-full mt-1 bg-card border border-border-subtle rounded-lg z-[999] max-h-[300px] overflow-y-auto scrollbar-none shadow-xl block">
             <div className="p-1 space-y-0.5">
               {options && options.length > 0 ? (
                 options.map((opt, idx) => {
@@ -85,7 +85,7 @@ const TacticalCustomSelect = ({
                     return (
                       <div
                         key={idx}
-                        className="px-3 py-2 text-[8px] font-black text-primary/40 uppercase tracking-[0.3em] bg-background-elevated border-b border-border-subtle mb-1 mt-1 first:mt-0"
+                        className="px-3 py-2 text-xs font-semibold text-primary uppercase tracking-wider bg-background-elevated/50 border-b border-border-subtle mb-1 mt-1 first:mt-0"
                       >
                         {opt.label}
                       </div>
@@ -104,22 +104,26 @@ const TacticalCustomSelect = ({
                       key={idx}
                       type="button"
                       onClick={() => handleSelect(optValue)}
-                      className={`w-full text-left px-3 py-2.5 transition-colors group/opt flex items-center justify-between ${
+                      className={`w-full text-left px-3 py-2 rounded-md transition-colors group/opt flex items-center justify-between cursor-pointer ${
                         isSelected
                           ? 'bg-primary/10'
                           : 'hover:bg-background-elevated'
                       }`}
                     >
-                      <span
-                        className={`text-[10px] font-black uppercase tracking-widest ${
-                          isSelected
-                            ? 'text-primary'
-                            : customColor ||
-                              'text-text-subtle group-hover/opt:text-text'
-                        }`}
-                      >
-                        {optLabel}
-                      </span>
+                      {renderOption ? (
+                        renderOption(opt, isSelected)
+                      ) : (
+                        <span
+                          className={`text-xs font-semibold uppercase tracking-wider ${
+                            isSelected
+                              ? 'text-primary'
+                              : customColor ||
+                                'text-text-subtle group-hover/opt:text-text'
+                          }`}
+                        >
+                          {optLabel}
+                        </span>
+                      )}
                       {isSelected && (
                         <div
                           className={`w-1.5 h-1.5 rounded-full ${customColor ? customColor.replace('text-', 'bg-') : 'bg-primary'}`}
@@ -129,7 +133,7 @@ const TacticalCustomSelect = ({
                   );
                 })
               ) : (
-                <div className="px-4 py-3 text-[10px] font-black text-text-subtle uppercase tracking-widest text-center">
+                <div className="px-4 py-3 text-xs font-medium text-text-subtle uppercase tracking-wider text-center">
                   No options available
                 </div>
               )}

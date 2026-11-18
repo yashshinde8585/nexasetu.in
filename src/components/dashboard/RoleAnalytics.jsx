@@ -3,7 +3,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { Layout, Zap, Bot } from 'lucide-react';
 import CapacityChart from './CapacityChart';
 
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#64748B'];
 
 // A comprehensive analytics component that visualizes team metrics based on the user's role.
 const RoleAnalytics = ({
@@ -51,7 +51,7 @@ const RoleAnalytics = ({
     if (!aiImpact) return [];
     return [
       { name: 'Agent (AI)', value: aiImpact.ai, color: '#8b5cf6' },
-      { name: 'Manual', value: aiImpact.manual, color: '#475569' },
+      { name: 'Manual', value: aiImpact.manual, color: '#64748B' },
     ];
   }, [aiImpact]);
 

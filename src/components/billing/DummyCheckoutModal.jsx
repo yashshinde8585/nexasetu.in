@@ -23,7 +23,7 @@ const DummyCheckoutModal = ({
             </div>
             <div>
               <h3 className="text-white font-bold text-lg">Secure Upgrade</h3>
-              <p className="text-white/40 text-[10px] uppercase tracking-widest font-black">
+              <p className="text-white/50 text-xs uppercase tracking-wider font-semibold">
                 NexaSetu Billing
               </p>
             </div>
@@ -54,7 +54,7 @@ const DummyCheckoutModal = ({
                     : `$${billingCycle === 'monthly' ? plan?.globalPrice || 0 : ((plan?.globalPriceAnnual || 0) * 12).toLocaleString()}`}
                 </div>
                 <div
-                  className={`text-[10px] font-bold tracking-[0.05em] mt-1 ${
+                  className={`text-xs font-medium mt-1 ${
                     billingCycle === 'annual'
                       ? 'text-status-success'
                       : 'text-white/40'
@@ -85,7 +85,7 @@ const DummyCheckoutModal = ({
           <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 flex items-center gap-4">
             <CreditCard className="text-primary" size={24} />
             <div className="flex-1">
-              <p className="text-[10px] font-black uppercase text-primary tracking-widest">
+              <p className="text-xs font-semibold uppercase text-primary tracking-wider">
                 Payment Mode
               </p>
               <p className="text-xs text-white/80 font-medium tracking-tight italic">
@@ -99,14 +99,14 @@ const DummyCheckoutModal = ({
         <div className="p-6 bg-white/[0.02] border-t border-white/5 flex gap-3">
           <button
             onClick={onClose}
-            className="flex-1 px-4 py-3 rounded-xl border border-white/10 text-white/60 text-sm font-bold hover:bg-white/5 transition-all"
+            className="flex-1 px-4 py-3 rounded-xl border border-white/10 text-white/60 text-sm font-semibold hover:bg-white/5 transition-all"
           >
             Cancel
           </button>
           <button
             onClick={onConfirm}
             disabled={isProcessing}
-            className="flex-[2] bg-primary hover:bg-primary-hover disabled:bg-primary/20 text-black px-6 py-3 rounded-xl text-sm font-black transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(var(--primary-rgb),0.3)] hover:shadow-[0_0_30px_rgba(var(--primary-rgb),0.5)]"
+            className="flex-[2] bg-primary hover:bg-primary-hover disabled:bg-primary/20 text-black px-6 py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(var(--primary-rgb),0.3)] hover:shadow-[0_0_30px_rgba(var(--primary-rgb),0.5)]"
           >
             {isProcessing ? (
               <>

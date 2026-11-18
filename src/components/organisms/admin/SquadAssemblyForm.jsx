@@ -1,52 +1,76 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  User,
+  Users,
   Shield,
   Save,
   Layout,
-  ChevronLeft,
-  Users,
-  CheckCircle,
+  Search,
+  X,
+  Check,
+  ArrowLeft,
+  User,
+  AlertCircle,
 } from 'lucide-react';
-import { BackButton } from '../../atoms';
+import toast from 'react-hot-toast';
 
 const TeamBuilderForm = ({
-  title,
-  description,
-  submitLabel,
+  title = 'Create New Team',
+  description = 'Define a new squad, assign team leadership, and select team members.',
+  submitLabel = 'Create Team',
   onSubmit,
   users = [],
   initialData = {},
   themeColor = 'primary', // 'primary' for create, 'secondary' for edit
 }) => {
   const navigate = useNavigate();
+
   const [name, setName] = useState(initialData.name || '');
-  const [mission, setMission] = useState(initialData.description || '');
+  const [descriptionText, setDescriptionText] = useState(initialData.description || '');
   const [lead, setLead] = useState(initialData.lead || '');
   const [selectedMembers, setSelectedMembers] = useState(
-    initialData.members || []
+    Array.isArray(initialData.members) ? initialData.members : []
   );
+  const [memberSearch, setMemberSearch] = useState('');
+  const [errors, setErrors] = useState({});
 
-  // Sync state if initialData changes (useful for async loads in Edit mode)
+  // Helper to extract a normalized string ID for a user
+  const getUserId = (u) => {
+    if (!u) return '';
+    if (typeof u === 'string') return u;
+    return String(u.id || u._id || '');
+  };
+
+  // Sync state if initialData changes (e.g. async edit data)
   useEffect(() => {
-    if (initialData.name) setName(initialData.name);
-    if (initialData.description) setMission(initialData.description);
-    if (initialData.lead) setLead(initialData.lead);
-    if (initialData.members) setSelectedMembers(initialData.members);
+    if (initialData.name !== undefined) setName(initialData.name || '');
+    if (initialData.description !== undefined) setDescriptionText(initialData.description || '');
+    if (initialData.lead !== undefined) setLead(initialData.lead || '');
+    if (Array.isArray(initialData.members)) setSelectedMembers(initialData.members);
   }, [initialData]);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSubmit({
-      name,
-      description: mission,
-      lead,
-      members: selectedMembers,
-    });
+  // Business rule: ensure team lead is automatically included in selected members
+  const handleLeadChange = (newLeadId) => {
+    setLead(newLeadId);
+    if (errors.lead) {
+      setErrors((prev) => ({ ...prev, lead: null }));
+    }
+    if (newLeadId && !selectedMembers.includes(newLeadId)) {
+      setSelectedMembers((prev) => [...prev, newLeadId]);
+    }
   };
 
   const toggleMember = (userId) => {
+    if (!userId) return;
+
+    // If member is the designated lead, notify user that lead must remain in the team
+    if (userId === lead && selectedMembers.includes(userId)) {
+      toast('The designated team lead must remain a team member.', {
+        icon: 'ℹ️',
+      });
+      return;
+    }
+
     setSelectedMembers((prev) =>
       prev.includes(userId)
         ? prev.filter((id) => id !== userId)
@@ -54,270 +78,366 @@ const TeamBuilderForm = ({
     );
   };
 
+  const removeMember = (userId) => {
+    if (!userId) return;
+    if (userId === lead) {
+      toast('The designated team lead must remain a team member.', {
+        icon: 'ℹ️',
+      });
+      return;
+    }
+    setSelectedMembers((prev) => prev.filter((id) => id !== userId));
+  };
+
+  // Filter users by search term
+  const filteredUsers = useMemo(() => {
+    const q = memberSearch.trim().toLowerCase();
+    if (!q) return users;
+    return users.filter((u) => {
+      const uName = (u.name || '').toLowerCase();
+      const uEmail = (u.email || '').toLowerCase();
+      const uRole = (u.role || '').toLowerCase();
+      return uName.includes(q) || uEmail.includes(q) || uRole.includes(q);
+    });
+  }, [users, memberSearch]);
+
+  // Resolve selected member user objects for chip display
+  const selectedMemberObjects = useMemo(() => {
+    return selectedMembers
+      .map((id) => users.find((u) => getUserId(u) === id))
+      .filter(Boolean);
+  }, [selectedMembers, users]);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const newErrors = {};
+
+    if (!name.trim()) {
+      newErrors.name = 'Team name is required.';
+    }
+
+    if (!lead) {
+      newErrors.lead = 'Please select a technical team lead.';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      toast.error('Please fill in all required fields.');
+      return;
+    }
+
+    // Ensure lead is in members list
+    const finalMembers =
+      lead && !selectedMembers.includes(lead)
+        ? [...selectedMembers, lead]
+        : selectedMembers;
+
+    onSubmit({
+      name: name.trim(),
+      description: descriptionText.trim(),
+      lead,
+      members: finalMembers,
+    });
+  };
+
   const isPrimary = themeColor === 'primary';
-  const colorClass = isPrimary ? 'text-primary' : 'text-secondary';
-  const bgColorClass = isPrimary ? 'bg-primary/5' : 'bg-secondary/5';
-  const borderColorClass = isPrimary
-    ? 'border-primary/20'
-    : 'border-secondary/20';
-  const glowClass = isPrimary
-    ? 'shadow-[0_0_40px_rgba(var(--primary-rgb),0.1)]'
-    : 'shadow-[0_0_40px_rgba(var(--secondary-rgb),0.1)]';
 
   return (
-    <div className="h-[calc(100vh-64px)] max-w-screen-xl mx-auto px-3 sm:px-4 lg:px-6 py-4 flex flex-col gap-4 overflow-hidden selection:bg-primary">
-      {/* Navigation & Breadcrumbs */}
-      <div className="flex items-center justify-between shrink-0">
-        <BackButton />
-        <div className="hidden sm:flex items-center gap-4 text-[9px] uppercase tracking-[0.2em] font-black text-white/10">
-          <span>ADMINISTRATION</span>
-          <span className="w-1 h-1 rounded-full bg-white/5" />
-          <span
-            className={`${isPrimary ? 'text-primary/40' : 'text-secondary/40'}`}
-          >
-            {isPrimary ? 'CREATE TEAM' : 'EDIT TEAM'}
-          </span>
-        </div>
-      </div>
+    <div className="max-w-5xl mx-auto px-4 lg:px-6 py-6 space-y-6 bg-background text-text min-h-screen font-sans animate-fade-in">
+      {/* Top Breadcrumb & Header */}
+      <div className="space-y-2 border-b border-border-subtle pb-4">
+        <button
+          type="button"
+          onClick={() => navigate('/teams?tab=teams')}
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-text-subtle hover:text-text cursor-pointer transition-colors"
+        >
+          <ArrowLeft size={13} />
+          <span>Back to teams</span>
+        </button>
 
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-white/5 pb-4 shrink-0">
-        <div className="space-y-1">
-          <div className="flex items-center gap-3">
-            <div
-              className={`w-8 h-8 rounded bg-white/5 border ${borderColorClass} flex items-center justify-center ${colorClass}`}
-            >
-              <Users size={16} />
-            </div>
-            <h1 className="text-xl font-black tracking-tight text-white uppercase leading-none">
-              {title}
-            </h1>
-          </div>
-          <p className="text-white/20 max-w-xl text-[9px] font-black uppercase tracking-widest leading-relaxed">
-            {description}
-          </p>
-        </div>
-      </div>
-
-      <form
-        onSubmit={handleSubmit}
-        className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch overflow-hidden min-h-0"
-      >
-        {/* Column 1: Team Foundation */}
-        <div className="flex flex-col h-full overflow-hidden">
-          <div className="bg-white/5 border border-white/10 rounded-xl p-5 gap-5 shadow-2xl flex flex-col h-full">
-            <div className="flex items-center gap-3 shrink-0">
-              <div className={`p-1 rounded bg-black ${colorClass}`}>
-                <Layout size={14} />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xs bg-background-elevated border border-border-subtle flex items-center justify-center text-primary">
+                <Users size={16} />
               </div>
-              <h2 className="text-[10px] font-black text-white uppercase tracking-widest">
-                CONFIGURATION
+              <h1 className="text-xl lg:text-2xl font-bold tracking-tight text-text">
+                {title}
+              </h1>
+            </div>
+            <p className="text-text-subtle text-xs sm:text-sm font-normal">
+              {description}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <span className="text-xs text-text-subtler font-medium">
+              {isPrimary ? 'New team workflow' : 'Editing team'}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Main 2-Column Form */}
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* Column 1: Team Details (5 cols) */}
+          <div className="lg:col-span-5 bg-card border border-border-subtle rounded-sm p-5 space-y-4">
+            <div className="flex items-center gap-2 pb-3 border-b border-border-subtle">
+              <Layout size={15} className="text-primary" />
+              <h2 className="text-sm font-semibold text-text">
+                Team details
               </h2>
             </div>
 
-            <div className="space-y-4 flex-1 overflow-y-auto custom-scrollbar pr-1">
-              <div className="space-y-2">
-                <label className="text-[9px] uppercase tracking-[0.2em] text-white/20 font-black px-1 block">
-                  TEAM IDENTITY
-                </label>
-                <input
-                  required
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="E.G. CORE PLATFORM"
-                  className="w-full h-9 bg-black border border-white/10 rounded px-4 text-[11px] font-black text-white focus:border-primary/50 outline-none transition-all placeholder:text-white/5 uppercase tracking-tight"
-                />
-              </div>
+            {/* Team Name */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-text-subtle flex items-center justify-between">
+                <span>Team Name <span className="text-status-error">*</span></span>
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  if (errors.name) setErrors((prev) => ({ ...prev, name: null }));
+                }}
+                placeholder="e.g. Core Engine Squad"
+                className={`w-full h-10 bg-background-elevated border ${
+                  errors.name ? 'border-status-error' : 'border-border-subtle'
+                } rounded-xs px-3.5 text-xs sm:text-sm font-medium text-text focus:border-primary/50 outline-none transition-all placeholder:text-text-subtler`}
+              />
+              {errors.name && (
+                <p className="text-[11px] text-status-error flex items-center gap-1 font-medium">
+                  <AlertCircle size={11} /> {errors.name}
+                </p>
+              )}
+            </div>
 
-              <div className="space-y-2">
-                <label className="text-[9px] uppercase tracking-[0.2em] text-white/20 font-black px-1 block">
-                  TEAM DESCRIPTION
-                </label>
-                <textarea
-                  rows={3}
-                  value={mission}
-                  onChange={(e) => setMission(e.target.value)}
-                  placeholder="DEFINE PRIMARY TEAM GOALS..."
-                  className="w-full bg-black border border-white/10 rounded p-3 text-[10px] font-black text-white/60 focus:border-primary/50 outline-none transition-all resize-none placeholder:text-white/5 leading-relaxed uppercase"
-                />
-              </div>
+            {/* Team Description */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-text-subtle block">
+                Description
+              </label>
+              <textarea
+                rows={3}
+                value={descriptionText}
+                onChange={(e) => setDescriptionText(e.target.value)}
+                placeholder="Briefly define the team's primary mission and scope..."
+                className="w-full bg-background-elevated border border-border-subtle rounded-xs p-3 text-xs sm:text-sm font-normal text-text focus:border-primary/50 outline-none transition-all resize-none placeholder:text-text-subtler leading-relaxed"
+              />
+            </div>
 
-              <div className="space-y-2">
-                <label className="text-[9px] uppercase tracking-[0.2em] text-white/20 font-black px-1 flex items-center justify-between">
-                  TECHNICAL LEAD
-                  <Shield size={10} className="text-secondary/40" />
-                </label>
-                <div className="relative group/select">
-                  <select
-                    required
-                    value={lead}
-                    onChange={(e) => setLead(e.target.value)}
-                    className="w-full h-9 bg-black border border-white/10 rounded px-4 text-[10px] font-black text-white focus:border-secondary/50 outline-none transition-all cursor-pointer appearance-none pr-10 uppercase"
-                  >
-                    <option value="" disabled>
-                      SELECT LEADERSHIP...
+            {/* Team Lead Selection */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-text-subtle flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <Shield size={12} className="text-secondary" />
+                  <span>Team Lead <span className="text-status-error">*</span></span>
+                </span>
+              </label>
+              <select
+                value={lead}
+                onChange={(e) => handleLeadChange(e.target.value)}
+                className={`w-full h-10 bg-background-elevated border ${
+                  errors.lead ? 'border-status-error' : 'border-border-subtle'
+                } rounded-xs px-3 text-xs sm:text-sm font-medium text-text focus:border-primary/50 outline-none transition-all cursor-pointer`}
+              >
+                <option value="" disabled>
+                  Select a team lead...
+                </option>
+                {users.map((u) => {
+                  const uid = getUserId(u);
+                  return (
+                    <option key={uid} value={uid}>
+                      {u.name} — {u.role ? u.role.replace(/_/g, ' ') : 'Developer'}
                     </option>
-                    {users.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.name} — {u.role.replace(/_/g, ' ')}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-white/10 group-hover/select:text-secondary transition-colors">
-                    <Shield size={14} />
-                  </div>
+                  );
+                })}
+              </select>
+              {errors.lead ? (
+                <p className="text-[11px] text-status-error flex items-center gap-1 font-medium">
+                  <AlertCircle size={11} /> {errors.lead}
+                </p>
+              ) : (
+                <p className="text-[11px] text-text-subtler font-normal">
+                  The team lead is automatically assigned as a team member.
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Column 2: Team Members (7 cols) */}
+          <div className="lg:col-span-7 bg-card border border-border-subtle rounded-sm p-5 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-border-subtle">
+              <div className="flex items-center gap-2">
+                <Users size={15} className="text-primary" />
+                <h2 className="text-sm font-semibold text-text">
+                  Team members
+                </h2>
+              </div>
+              <span className="px-2 py-0.5 rounded-xs text-xs font-semibold bg-primary/10 border border-primary/20 text-primary">
+                {selectedMembers.length} {selectedMembers.length === 1 ? 'member' : 'members'} selected
+              </span>
+            </div>
+
+            {/* Member Search Bar */}
+            <div className="relative group">
+              <Search
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-text-subtler group-focus-within:text-primary transition-colors"
+                size={14}
+              />
+              <input
+                type="text"
+                placeholder="Search members by name, email, or role..."
+                value={memberSearch}
+                onChange={(e) => setMemberSearch(e.target.value)}
+                className="w-full h-9 bg-background-elevated border border-border-subtle rounded-xs px-3 pl-9 pr-8 text-xs text-text focus:border-primary/50 outline-none transition-all placeholder:text-text-subtler font-medium"
+              />
+              {memberSearch && (
+                <button
+                  type="button"
+                  onClick={() => setMemberSearch('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-subtler hover:text-text cursor-pointer"
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+
+            {/* Selected Members Chips */}
+            {selectedMemberObjects.length > 0 && (
+              <div className="space-y-1.5">
+                <span className="text-[11px] font-medium text-text-subtler block">
+                  Selected contributors:
+                </span>
+                <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto p-1 bg-background-elevated/30 border border-border-subtle/50 rounded-xs">
+                  {selectedMemberObjects.map((u) => {
+                    const uid = getUserId(u);
+                    const isLead = uid === lead;
+                    return (
+                      <span
+                        key={uid}
+                        className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-xs text-xs font-medium border ${
+                          isLead
+                            ? 'bg-secondary/10 border-secondary/20 text-secondary'
+                            : 'bg-background-elevated border-border-subtle text-text'
+                        }`}
+                      >
+                        <span className="truncate max-w-[120px]">{u.name}</span>
+                        {isLead ? (
+                          <span className="text-[10px] font-bold px-1 rounded-xs bg-secondary/20">
+                            Lead
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => removeMember(uid)}
+                            title={`Remove ${u.name}`}
+                            className="text-text-subtler hover:text-text cursor-pointer"
+                          >
+                            <X size={12} />
+                          </button>
+                        )}
+                      </span>
+                    );
+                  })}
                 </div>
               </div>
-            </div>
+            )}
 
-            <div className="flex flex-col gap-2 pt-5 mt-auto border-t border-white/5 shrink-0">
-              <button
-                type="submit"
-                className={`w-full h-10 ${isPrimary ? 'bg-primary' : 'bg-secondary'} text-black rounded font-black text-[10px] uppercase tracking-[0.2em] transition-all active:scale-95 flex items-center justify-center gap-2`}
-              >
-                <Save size={14} /> {submitLabel}
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate(-1)}
-                className="w-full text-white/10 hover:text-white font-black text-[9px] uppercase tracking-widest transition-colors py-1"
-              >
-                DISCARD CHANGES
-              </button>
+            {/* Multi-member Selection List */}
+            <div className="space-y-1.5 max-h-[360px] overflow-y-auto custom-scrollbar pr-1">
+              {filteredUsers.length > 0 ? (
+                filteredUsers.map((u) => {
+                  const uid = getUserId(u);
+                  const isSelected = selectedMembers.includes(uid);
+                  const isLead = uid === lead;
+
+                  return (
+                    <div
+                      key={uid}
+                      onClick={() => toggleMember(uid)}
+                      className={`flex items-center justify-between p-3 rounded-xs border transition-all cursor-pointer select-none ${
+                        isSelected
+                          ? 'bg-primary/5 border-primary/30 text-text'
+                          : 'bg-background-elevated/40 border-border-subtle hover:border-border text-text-subtle hover:text-text'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => {}} // handled by row container onClick
+                          className="accent-primary h-4 w-4 rounded-xs cursor-pointer"
+                        />
+                        <div className="w-8 h-8 rounded-xs bg-background-elevated border border-border-subtle flex items-center justify-center text-xs font-bold text-text uppercase shrink-0">
+                          {u.name?.slice(0, 2).toUpperCase() || <User size={13} />}
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-xs sm:text-sm font-medium text-text truncate">
+                            {u.name}
+                          </span>
+                          <span className="text-[11px] text-text-subtler font-normal truncate">
+                            {u.role ? u.role.replace(/_/g, ' ') : 'Developer'}
+                            {u.email ? ` • ${u.email}` : ''}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="shrink-0 flex items-center gap-2">
+                        {isLead && (
+                          <span className="text-[11px] font-semibold text-secondary bg-secondary/10 border border-secondary/20 px-2 py-0.5 rounded-xs">
+                            Team Lead
+                          </span>
+                        )}
+                        {isSelected && !isLead && (
+                          <Check size={14} className="text-primary" />
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="py-12 text-center border border-dashed border-border-subtle rounded-xs">
+                  <p className="text-xs font-medium text-text-subtler">
+                    {users.length === 0
+                      ? 'No workspace members found. Add members to your workspace first.'
+                      : `No members matched "${memberSearch}".`}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Column 2: Pool A (Available) */}
-        <div className="flex flex-col h-full overflow-hidden">
-          <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden flex flex-col h-full">
-            <div className="px-4 py-3 border-b border-white/5 bg-status-success/[0.03] flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-2">
-                <div className="w-1 h-1 rounded-full bg-status-success" />
-                <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">
-                  AVAILABLE MEMBERS
-                </span>
-              </div>
-              <div className="bg-status-success/10 text-status-success text-[8px] font-black px-2 py-0.5 rounded border border-status-success/20">
-                {users.filter((u) => !u.teams || u.teams.length === 0).length}
-              </div>
-            </div>
+        {/* Workflow Action Buttons (Bottom of Complete Workflow) */}
+        <div className="flex flex-col-reverse sm:flex-row items-center justify-between gap-3 pt-4 border-t border-border-subtle">
+          <span className="text-xs text-text-subtler font-medium">
+            {selectedMembers.length} {selectedMembers.length === 1 ? 'member' : 'members'} selected
+            {lead ? ' (including Team Lead)' : ''}
+          </span>
 
-            <div className="p-3 flex-1 overflow-y-auto custom-scrollbar bg-white/[0.01]">
-              <div className="space-y-2">
-                {users
-                  .filter((u) => !u.teams || u.teams.length === 0)
-                  .map((u) => (
-                    <MemberItem
-                      key={u.id}
-                      user={u}
-                      isActive={selectedMembers.includes(u.id)}
-                      onToggle={() => toggleMember(u.id)}
-                      themeColor={themeColor}
-                    />
-                  ))}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Column 3: Pool B (Current/Active) */}
-        <div className="flex flex-col h-full overflow-hidden">
-          <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden flex flex-col h-full">
-            <div
-              className={`px-4 py-3 border-b border-white/5 ${isPrimary ? 'bg-secondary/[0.03]' : 'bg-primary/[0.03]'} flex items-center justify-between shrink-0`}
+          <div className="flex items-center gap-2.5 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={() => navigate('/teams?tab=teams')}
+              className="flex-1 sm:flex-initial px-4 py-2 bg-background-elevated border border-border-subtle hover:border-border text-xs font-semibold text-text rounded-xs transition-colors cursor-pointer"
             >
-              <div className="flex items-center gap-2">
-                <div
-                  className={`w-1 h-1 rounded-full ${isPrimary ? 'bg-secondary' : 'bg-primary'}`}
-                />
-                <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">
-                  {isPrimary ? 'SELECTED MEMBERS' : 'ACTIVE MEMBERS'}
-                </span>
-              </div>
-              <div
-                className={`${bgColorClass} ${colorClass} text-[8px] font-black px-2 py-0.5 rounded border ${borderColorClass}`}
-              >
-                {
-                  selectedMembers.filter(
-                    (id) => users.find((u) => u.id === id)?.teams?.length > 0
-                  ).length
-                }
-              </div>
-            </div>
-
-            <div className="p-3 flex-1 overflow-y-auto custom-scrollbar bg-white/[0.01]">
-              <div className="space-y-2">
-                {users
-                  .filter((u) => u.teams && u.teams.length > 0)
-                  .map((u) => (
-                    <MemberItem
-                      key={u.id}
-                      user={u}
-                      isActive={selectedMembers.includes(u.id)}
-                      onToggle={() => toggleMember(u.id)}
-                      themeColor={themeColor}
-                      showTeam
-                    />
-                  ))}
-              </div>
-            </div>
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="flex-1 sm:flex-initial px-5 py-2 bg-primary text-black font-semibold text-xs rounded-xs hover:bg-primary/90 transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 shadow-xs"
+            >
+              <Save size={13} />
+              <span>{submitLabel}</span>
+            </button>
           </div>
         </div>
       </form>
     </div>
   );
 };
-
-/* Internal Helper for List Items */
-const MemberItem = ({ user, isActive, onToggle, showTeam, themeColor }) => (
-  <div
-    onClick={onToggle}
-    className={`flex items-center justify-between p-3 rounded border transition-all cursor-pointer group/item ${
-      isActive
-        ? `bg-primary/10 border-primary/40 text-white`
-        : 'bg-black border-white/5 hover:bg-white/5 hover:border-white/10 text-white/20'
-    }`}
-  >
-    <div className="flex items-center gap-3 min-w-0">
-      <div
-        className={`w-8 h-8 rounded flex items-center justify-center transition-all shrink-0 ${
-          isActive
-            ? `bg-primary/20 text-primary`
-            : 'bg-white/5 text-white/10 group-hover/item:text-white/30'
-        }`}
-      >
-        <User size={14} />
-      </div>
-      <div className="flex flex-col min-w-0">
-        <span
-          className={`text-[11px] font-black uppercase tracking-tight truncate ${isActive ? 'text-white' : 'group-hover/item:text-white'}`}
-        >
-          {user.name}
-        </span>
-        <div className="flex items-center gap-2 mt-0.5">
-          <span className="text-[8px] font-black uppercase tracking-widest opacity-20">
-            {user.role.replace(/_/g, ' ')}
-          </span>
-          {showTeam && user.teams?.[0] && (
-            <span className="text-[7px] px-1.5 py-0.5 rounded-sm bg-white/5 text-white/20 font-black border border-white/10 uppercase tracking-tighter">
-              {user.teams[0]}
-            </span>
-          )}
-        </div>
-      </div>
-    </div>
-    <div
-      className={`w-4 h-4 rounded-full border flex items-center justify-center transition-all ${
-        isActive
-          ? `border-primary bg-primary`
-          : 'border-white/10 bg-transparent'
-      }`}
-    >
-      {isActive && <CheckCircle size={10} className="text-black" />}
-    </div>
-  </div>
-);
 
 export default TeamBuilderForm;
