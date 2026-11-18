@@ -1,35 +1,46 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, Zap, Cpu, Activity, Clock, Box } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Plus,
+  Rocket,
+  Clock,
+  FolderKanban,
+  AlertCircle,
+  FolderPlus,
+  RefreshCcw,
+} from 'lucide-react';
+import toast from 'react-hot-toast';
 import { useDashboard } from '../../hooks/useDashboard';
 import { useAuth } from '../../context/AuthContext';
 import { USER_ROLES } from '../../constants/auth';
-import Button from '../../components/atoms/Button';
+import CenteredLoading from '../../components/atoms/CenteredLoading';
 import SprintCreationModal from '../../components/organisms/SprintCreationModal';
 import SprintDetailsCard from '../../components/organisms/SprintDetailsCard';
 import ProjectStatusList from '../../components/organisms/ProjectStatusList';
 import SprintSummaryModal from '../../components/organisms/SprintSummaryModal';
 
 const ProjectInfo = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
 
-  // Tactical State Persistence
+  // State Persistence for Active Sprint
   const [selectedSprintId, setSelectedSprintId] = useState(() =>
     localStorage.getItem('nexa_selected_sprint_id')
-  );
-  const [filterProjectId, setFilterProjectId] = useState(() =>
-    localStorage.getItem('nexa_selected_project_id')
   );
   const [showSprintForm, setShowSprintForm] = useState(false);
 
   const {
-    projects,
+    projects = [],
     isLoading,
-    sprints,
+    error,
+    sprints = [],
     sprintStats,
     sprintStatsLoading,
     createSprint,
     createSprintLoading,
     linkProjectToSprint: handleLinkProject,
+    createTicket,
+    createTicketLoading,
     getFinalSummary,
     downloadSprintReport,
   } = useDashboard(selectedSprintId);
@@ -46,27 +57,23 @@ const ProjectInfo = () => {
       .split('T')[0],
   });
 
-  // Sync state with localStorage for persistence
+  // Sync selected sprint ID with localStorage
   useEffect(() => {
-    if (selectedSprintId)
+    if (selectedSprintId) {
       localStorage.setItem('nexa_selected_sprint_id', selectedSprintId);
+    }
   }, [selectedSprintId]);
-
-  useEffect(() => {
-    if (filterProjectId)
-      localStorage.setItem('nexa_selected_project_id', filterProjectId);
-    else localStorage.removeItem('nexa_selected_project_id');
-  }, [filterProjectId]);
 
   // Filtering sprints based on user project access
   const sprintsForUser = useMemo(() => {
-    if (!sprints) return [];
+    if (!sprints || sprints.length === 0) return [];
     if (
       user?.role === USER_ROLES.WORKSPACE_ADMIN ||
       user?.role === USER_ROLES.WORKSPACE_MANAGER ||
       user?.role === USER_ROLES.TECH_LEAD
-    )
+    ) {
       return sprints;
+    }
 
     const userProjectIds = projects.map((p) => p._id);
     return sprints.filter((s) => {
@@ -75,21 +82,27 @@ const ProjectInfo = () => {
     });
   }, [sprints, user, projects]);
 
-  // Initial selection logic
+  // Initial and fallback selection logic
   useEffect(() => {
-    const sprintExists = sprintsForUser.some((s) => s._id === selectedSprintId);
-    if ((!selectedSprintId || !sprintExists) && sprintsForUser?.length > 0) {
-      const active =
-        sprintsForUser.find((s) => s.status === 'active') || sprintsForUser[0];
-      if (active) setSelectedSprintId(active._id);
+    if (sprintsForUser && sprintsForUser.length > 0) {
+      const sprintExists = sprintsForUser.some((s) => (s._id || s.id) === selectedSprintId);
+      if (!selectedSprintId || !sprintExists) {
+        const active =
+          sprintsForUser.find((s) => s.status === 'active' || s.status === 'in_progress') ||
+          sprintsForUser[0];
+        if (active) setSelectedSprintId(active._id || active.id);
+      }
+    } else {
+      setSelectedSprintId(null);
     }
   }, [sprintsForUser, selectedSprintId]);
 
-  const selectedSprintData = useMemo(
-    () => sprints?.find((s) => s._id === selectedSprintId),
-    [sprints, selectedSprintId]
-  );
+  const selectedSprintData = useMemo(() => {
+    if (!sprints || sprints.length === 0 || !selectedSprintId) return null;
+    return sprints.find((s) => (s._id || s.id) === selectedSprintId) || null;
+  }, [sprints, selectedSprintId]);
 
+  // Normalize sprint metrics safely with N/A support
   const sprintMetrics = useMemo(() => {
     if (!sprintStats?.metrics) {
       if (!selectedSprintData) return null;
@@ -102,20 +115,26 @@ const ProjectInfo = () => {
         review: 0,
         completed: 0,
         velocitySpark: [],
-        flowEfficiency: '0',
+        flowEfficiency: '0%',
+        strategicDebt: 0,
+        blockerCount: 0,
+        workload: [],
       };
     }
 
     const { raw, ...otherMetrics } = sprintStats.metrics;
     return {
       ...otherMetrics,
-      open: raw?.totalOpen || 0,
-      active: raw?.inProgress || 0,
-      review: raw?.inReview || 0,
-      completed: raw?.completed || 0,
-      health: selectedSprintData?.healthScore || 0,
-      pressure: selectedSprintData?.pressureIndex || 0,
-      velocity: raw?.completed || 0,
+      open: raw?.totalOpen ?? 0,
+      active: raw?.inProgress ?? 0,
+      review: raw?.inReview ?? 0,
+      completed: raw?.completed ?? 0,
+      health: selectedSprintData?.healthScore || otherMetrics.healthScore || 0,
+      pressure: selectedSprintData?.pressureIndex || otherMetrics.pressureIndex || 0,
+      velocity: raw?.completed ?? 0,
+      blockerCount: raw?.blockers ?? (typeof otherMetrics.blockerDensity === 'number' ? otherMetrics.blockerDensity : 0),
+      overdueCount: raw?.overdue ?? (typeof otherMetrics.strategicDebt === 'number' ? otherMetrics.strategicDebt : 0),
+      workload: otherMetrics.workload || [],
     };
   }, [sprintStats, selectedSprintData]);
 
@@ -126,30 +145,50 @@ const ProjectInfo = () => {
 
   const submitSprint = (e) => {
     e.preventDefault();
+    if (!sprintData.name?.trim() || !sprintData.project) {
+      toast.error('Sprint name and associated project are required');
+      return;
+    }
     createSprint(sprintData, {
       onSuccess: (res) => {
-        if (res.data?.sprint) setSelectedSprintId(res.data.sprint._id);
+        toast.success('Sprint created successfully');
+        const newId = res.data?.sprint?._id || res.data?.sprint?.id;
+        if (newId) setSelectedSprintId(newId);
         setShowSprintForm(false);
+        setSprintData({
+          name: '',
+          project: '',
+          startDate: new Date().toISOString().split('T')[0],
+          endDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
+            .toISOString()
+            .split('T')[0],
+        });
+      },
+      onError: (err) => {
+        toast.error(err?.message || 'Failed to create sprint');
       },
     });
   };
 
   const finalizeSelection = async () => {
+    if (!selectedSprintId) return;
     setFinalizing(true);
     try {
       const summary = await getFinalSummary(selectedSprintId);
       setFinalSummary(summary);
+      toast.success('Sprint finalized successfully');
+    } catch (err) {
+      toast.error(err?.message || 'Failed to finalize sprint');
     } finally {
       setFinalizing(false);
     }
   };
 
   const handleDownload = async () => {
+    if (!selectedSprintId) return;
     try {
       const reportData = await downloadSprintReport(selectedSprintId);
-
-      // Convert reportData.tasks into CSV format
-      const tasks = reportData.tasks || [];
+      const tasks = reportData?.tasks || [];
       const headers = [
         'Sprint',
         'Task Title',
@@ -159,19 +198,18 @@ const ProjectInfo = () => {
         'Priority',
         'Due Date',
       ];
-      const sprintName = reportData.sprint?.name || 'Unknown Sprint';
+      const sprintName = reportData?.sprint?.name || selectedSprintData?.name || 'Sprint';
 
       const csvContent = [
         headers.join(','),
         ...tasks.map((t) => {
-          // Wrap text in quotes to handle commas within values
           const escape = (val) =>
             `"${(val || '').toString().replace(/"/g, '""')}"`;
           return [
             escape(sprintName),
             escape(t.title),
-            escape(t.project),
-            escape(t.assignedTo),
+            escape(t.project?.name || t.project),
+            escape(t.assignedTo?.name || t.assignedTo),
             escape(t.status),
             escape(t.priority),
             escape(t.dueDate ? new Date(t.dueDate).toLocaleDateString() : ''),
@@ -188,21 +226,68 @@ const ProjectInfo = () => {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+      toast.success('Sprint report exported');
     } catch (err) {
       console.error('Failed to download sprint report:', err);
+      toast.error('Failed to export sprint report');
     }
   };
 
-  if (isLoading)
+  const handleLinkProjectWithFeedback = async (projectId) => {
+    try {
+      await handleLinkProject(projectId);
+      toast.success('Project assigned to sprint');
+    } catch (err) {
+      toast.error(err?.message || 'Failed to assign project to sprint');
+    }
+  };
+
+  const handleQuickTask = async ({ title, project, sprint }) => {
+    return new Promise((resolve, reject) => {
+      createTicket(
+        { title, project, sprint },
+        {
+          onSuccess: (res) => {
+            toast.success('Task created successfully');
+            resolve(res);
+          },
+          onError: (err) => {
+            toast.error(err?.message || 'Failed to create task');
+            reject(err);
+          },
+        }
+      );
+    });
+  };
+
+  if (isLoading) return <CenteredLoading />;
+
+  if (error) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary" />
+      <div className="min-h-[60vh] flex flex-col items-center justify-center p-6 text-center space-y-4">
+        <AlertCircle size={40} className="text-status-error" />
+        <h2 className="text-lg font-bold text-text">Failed to load sprints</h2>
+        <p className="text-xs text-text-subtle max-w-sm">
+          We encountered an issue loading sprint data. Please verify your connection and try again.
+        </p>
+        <button
+          onClick={() => window.location.reload()}
+          className="px-4 py-2 bg-primary hover:bg-primary-hover text-white text-xs font-semibold rounded-xs transition-colors flex items-center gap-2 cursor-pointer"
+        >
+          <RefreshCcw size={13} />
+          <span>Reload</span>
+        </button>
       </div>
     );
+  }
+
+  const hasProjects = projects && projects.length > 0;
+  const hasSprints = sprintsForUser && sprintsForUser.length > 0;
 
   return (
-    <div className="min-h-screen bg-background text-text px-3 sm:px-4 lg:px-6 py-4">
+    <div className="min-h-screen bg-background text-text p-3 sm:p-4 lg:p-6 font-sans">
       <div className="w-full space-y-6 max-w-7xl mx-auto">
+        {/* Modals */}
         <SprintCreationModal
           show={showSprintForm}
           onClose={() => setShowSprintForm(false)}
@@ -218,98 +303,151 @@ const ProjectInfo = () => {
           setFinalSummary={setFinalSummary}
         />
 
-        {/* Tactical Orchestration Header */}
-        <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 pb-6 border-b border-border-subtle">
-          <div className="space-y-4 flex-1 w-full">
-            <div className="flex items-center gap-3">
-              <div className="space-y-1">
-                <h1 className="text-[14px] font-black tracking-widest uppercase text-text">
-                  SPRINT DASHBOARD
-                </h1>
-                <p className="text-text-subtle text-[9px] font-black uppercase tracking-[0.2em] max-w-xl">
-                  MANAGE AND TRACK SPRINT PROGRESS AND METRICS
-                </p>
-              </div>
+        {/* 1. Header Section */}
+        <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border-subtle">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-xl lg:text-2xl font-bold tracking-tight text-text">
+                Sprint Dashboard
+              </h1>
             </div>
-
-            <div className="flex flex-wrap items-center gap-6 pt-1">
-              <div className="flex flex-col gap-1.5">
-                <span className="text-[9px] font-black text-text-subtle uppercase tracking-[0.2em]">
-                  ACTIVE SPRINTS
-                </span>
-                <div className="flex items-center gap-2">
-                  <Clock size={12} className="text-primary-light" />
-                  <span className="text-[11px] font-black text-text uppercase tracking-tight">
-                    {sprintsForUser?.length || 0} SPRINTS
-                  </span>
-                </div>
-              </div>
-            </div>
+            <p className="text-xs sm:text-sm text-text-subtle">
+              Manage iterations, track delivery velocity, and allocate project deliverables.
+            </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 text-xs font-semibold text-text-subtle bg-background-elevated border border-border-subtle px-3 py-1.5 rounded-xs">
+              <Clock size={13} className="text-primary" />
+              <span>
+                {sprintsForUser.length} {sprintsForUser.length === 1 ? 'sprint' : 'sprints'}
+              </span>
+              <span className="text-border-subtle">•</span>
+              <FolderKanban size={13} className="text-secondary" />
+              <span>
+                {projects.length} {projects.length === 1 ? 'project' : 'projects'}
+              </span>
+            </div>
+
             {canCreate && (
-              <button
-                onClick={() => setShowSprintForm(true)}
-                className="flex-1 sm:flex-none h-9 px-6 bg-primary text-background-dark hover:bg-primary-dark rounded text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95 group"
-              >
-                <Plus size={14} strokeWidth={3} />
-                CREATE NEW SPRINT
-              </button>
+              hasProjects ? (
+                <button
+                  type="button"
+                  onClick={() => setShowSprintForm(true)}
+                  className="h-9 px-4 bg-primary hover:bg-primary-hover text-white rounded-xs text-xs font-semibold flex items-center gap-2 transition-colors cursor-pointer"
+                >
+                  <Plus size={14} />
+                  <span>Create sprint</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => navigate('/project-setup')}
+                  className="h-9 px-4 bg-primary hover:bg-primary-hover text-white rounded-xs text-xs font-semibold flex items-center gap-2 transition-colors cursor-pointer"
+                >
+                  <Plus size={14} />
+                  <span>Create project</span>
+                </button>
+              )
             )}
           </div>
         </header>
 
-        <div className="grid grid-cols-1 gap-6 relative z-10">
-          {selectedSprintId ? (
-            <SprintDetailsCard
-              sprint={selectedSprintData}
-              metrics={sprintMetrics}
-              stats={sprintStats}
-              statsLoading={sprintStatsLoading}
-              showWorkload={showWorkload}
-              setShowWorkload={setShowWorkload}
-              onDownload={handleDownload}
-              sprints={sprintsForUser}
-              onSprintChange={(id) => setSelectedSprintId(id)}
-              onAddSprint={() => setShowSprintForm(true)}
-              onFinalize={finalizeSelection}
-              finalizing={finalizing}
-              canCreate={canCreate}
-            />
-          ) : (
-            <div className="py-16 text-center bg-background-elevated border border-dashed border-border-subtle rounded-xl animate-in zoom-in-95 duration-500 group">
-              <div className="w-16 h-16 bg-background-dark rounded-xl border border-primary flex items-center justify-center text-primary mx-auto mb-6 transition-all duration-700">
-                <Zap size={32} />
+        {/* 2. Main Content Views */}
+        <div className="space-y-6">
+          {/* Case A: Workspace has no projects */}
+          {!hasProjects ? (
+            <div className="bg-card border border-border-subtle rounded-md p-8 sm:p-12 text-center space-y-4">
+              <div className="w-12 h-12 rounded-xs bg-primary/10 border border-primary/20 text-primary flex items-center justify-center mx-auto">
+                <FolderPlus size={24} />
               </div>
-              <div className="space-y-2 max-w-sm mx-auto mb-8">
-                <h3 className="text-xl font-black text-text tracking-tighter uppercase leading-none">
-                  STATUS: NO ACTIVE SPRINT
+              <div className="space-y-1.5 max-w-md mx-auto">
+                <h3 className="text-base font-bold text-text">
+                  No projects in this workspace
                 </h3>
-                <p className="text-text-subtle text-[9px] font-black uppercase tracking-[0.2em] leading-relaxed px-4">
-                  No active sprint detected. Create a new sprint to begin
-                  tracking progress.
+                <p className="text-xs text-text-subtle leading-relaxed">
+                  Sprints require an active project to track deliverables, tasks, and velocity. Create your first project to start planning iterations.
                 </p>
               </div>
               {canCreate && (
                 <button
-                  onClick={() => setShowSprintForm(true)}
-                  className="h-9 px-8 bg-white text-background-dark hover:bg-white/90 rounded text-[9px] font-black uppercase tracking-[0.2em] transition-all active:scale-95"
+                  type="button"
+                  onClick={() => navigate('/project-setup')}
+                  className="h-9 px-5 bg-primary hover:bg-primary-hover text-white rounded-xs text-xs font-semibold inline-flex items-center gap-2 transition-colors cursor-pointer"
                 >
-                  + CREATE SPRINT
+                  <Plus size={14} />
+                  <span>Create project</span>
                 </button>
               )}
             </div>
-          )}
+          ) : !hasSprints ? (
+            /* Case B: Projects exist, but no sprints created yet */
+            <div className="space-y-6">
+              <div className="bg-card border border-border-subtle rounded-md p-8 sm:p-12 text-center space-y-4">
+                <div className="w-12 h-12 rounded-xs bg-primary/10 border border-primary/20 text-primary flex items-center justify-center mx-auto">
+                  <Rocket size={24} />
+                </div>
+                <div className="space-y-1.5 max-w-md mx-auto">
+                  <h3 className="text-base font-bold text-text">
+                    No active sprints
+                  </h3>
+                  <p className="text-xs text-text-subtle leading-relaxed">
+                    Plan iteration goals, track delivery pace, and organize task assignments across your projects.
+                  </p>
+                </div>
+                {canCreate && (
+                  <button
+                    type="button"
+                    onClick={() => setShowSprintForm(true)}
+                    className="h-9 px-5 bg-primary hover:bg-primary-hover text-white rounded-xs text-xs font-semibold inline-flex items-center gap-2 transition-colors cursor-pointer"
+                  >
+                    <Plus size={14} />
+                    <span>Create sprint</span>
+                  </button>
+                )}
+              </div>
 
-          <div className="pt-8">
-            <ProjectStatusList
-              projects={projects}
-              currentSprintId={selectedSprintId}
-              onLinkProject={handleLinkProject}
-              canLink={canCreate}
-            />
-          </div>
+              {/* Still display project inventory so projects can be viewed */}
+              <ProjectStatusList
+                projects={projects}
+                selectedSprintId={null}
+                onLinkProject={handleLinkProjectWithFeedback}
+                onCreateTask={handleQuickTask}
+                createTaskLoading={createTicketLoading}
+                canManage={canCreate}
+              />
+            </div>
+          ) : (
+            /* Case C: Sprints exist */
+            <div className="space-y-6">
+              {selectedSprintData && (
+                <SprintDetailsCard
+                  sprint={selectedSprintData}
+                  metrics={sprintMetrics}
+                  stats={sprintStats}
+                  statsLoading={sprintStatsLoading}
+                  showWorkload={showWorkload}
+                  setShowWorkload={setShowWorkload}
+                  onDownload={handleDownload}
+                  sprints={sprintsForUser}
+                  onSprintChange={(id) => setSelectedSprintId(id)}
+                  onFinalize={finalizeSelection}
+                  finalizing={finalizing}
+                  canCreate={canCreate}
+                />
+              )}
+
+              {/* Project Inventory */}
+              <ProjectStatusList
+                projects={projects}
+                selectedSprintId={selectedSprintId}
+                onLinkProject={handleLinkProjectWithFeedback}
+                onCreateTask={handleQuickTask}
+                createTaskLoading={createTicketLoading}
+                canManage={canCreate}
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>

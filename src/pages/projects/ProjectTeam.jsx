@@ -306,10 +306,18 @@ const ProjectTeam = () => {
 
   const getRoleDisplayName = (role, jobTitle) => {
     const r = role?.toUpperCase();
-    if (r === 'WORKSPACE_ADMIN' || r === 'ADMIN') return 'Administrator';
+    if (r === 'WORKSPACE_ADMIN') return 'Workspace Admin';
+    if (r === 'ADMIN') return 'Administrator';
+    if (r === 'SUPER_ADMIN') return 'Super Admin';
     if (r === 'TECH_LEAD') return 'Tech Lead';
+    if (r === 'WORKSPACE_MANAGER' || r === 'PROJECT_ADMIN')
+      return 'Project Admin';
+    if (r === 'SENIOR_ENGINEER') return 'Senior Engineer';
+    if (r === 'SOFTWARE_ENGINEER') return 'Software Engineer';
+    if (r === 'QA_ENGINEER') return 'QA Engineer';
     if (r === 'HR_MANAGER') return 'HR Manager';
-    return jobTitle || 'Developer';
+    if (r === 'INTERN') return 'Intern';
+    return jobTitle || (role ? role.replace(/_/g, ' ') : 'Developer');
   };
 
   const getStatusBadgeClass = (status) => {

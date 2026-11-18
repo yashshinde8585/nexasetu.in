@@ -64,6 +64,18 @@ const VPEDashboard = () => {
 
   return (
     <div className="min-h-screen bg-background text-text p-4 lg:p-6 font-sans selection:bg-primary max-w-screen-2xl mx-auto flex flex-col gap-6">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-xl lg:text-2xl font-bold tracking-tight text-text">
+            VP Engineering Execution Commander
+          </h1>
+          <p className="text-xs sm:text-sm text-text-subtle">
+            Cross-team delivery metrics, project execution timelines, and active blockers.
+          </p>
+        </div>
+      </div>
+
       {/* 1. Global Performance metrics */}
       <div
         id="vpe-execution-strip"

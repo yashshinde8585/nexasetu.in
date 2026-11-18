@@ -16,7 +16,7 @@ const CreateTeam = () => {
   const handleCreate = async (teamData) => {
     try {
       await createTeam(teamData);
-      navigate(ROUTES.ADMIN_PANEL);
+      navigate('/teams?tab=teams');
     } catch (err) {
       console.error('Failed to create team:', err);
     }

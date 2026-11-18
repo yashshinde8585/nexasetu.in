@@ -46,6 +46,9 @@ export const useBilling = () => {
     subscription: subscriptionQuery.data?.subscription,
     limits: subscriptionQuery.data?.limits,
     planName: subscriptionQuery.data?.planName,
+    usage:
+      subscriptionQuery.data?.usage ||
+      subscriptionQuery.data?.subscription?.usage,
     isLoading:
       !authReady || subscriptionQuery.isLoading || plansQuery.isLoading,
     plans: plansQuery.data || [],

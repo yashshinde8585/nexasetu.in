@@ -63,16 +63,16 @@ const ProfileDropdown = () => {
               className="w-full h-full object-cover group-hover:scale-110 transition-all duration-300"
             />
           ) : (
-            <span className="text-white font-black text-[10px] uppercase">
+            <span className="text-white font-bold text-xs uppercase">
               {displayName.charAt(0)}
             </span>
           )}
         </div>
-        <div className="hidden sm:flex flex-col items-start leading-none gap-1 pr-3">
-          <span className="text-[10px] font-black text-white uppercase tracking-widest">
+        <div className="hidden sm:flex flex-col items-start leading-tight gap-0.5 pr-2">
+          <span className="text-xs sm:text-[13px] font-semibold text-white tracking-wide">
             {displayName}
           </span>
-          <span className="text-[7px] text-primary font-black uppercase tracking-[0.2em]">
+          <span className="text-[11px] text-primary font-medium tracking-wide">
             {displayTitle}
           </span>
         </div>
@@ -101,21 +101,21 @@ const ProfileDropdown = () => {
                 />
               ) : (
                 <div className="w-full h-full rounded-none bg-white/5 flex items-center justify-center">
-                  <span className="text-white text-base font-black uppercase">
+                  <span className="text-white text-base font-bold uppercase">
                     {displayName.charAt(0)}
                   </span>
                 </div>
               )}
             </div>
-            <div className="flex flex-col overflow-hidden gap-1">
+            <div className="flex flex-col overflow-hidden gap-0.5">
               <h3
-                className="text-[11px] font-black text-white uppercase truncate leading-none tracking-widest"
+                className="text-sm font-semibold text-white truncate leading-tight tracking-wide"
                 style={{ color: 'var(--color-text)' }}
               >
                 {displayName}
               </h3>
               <p
-                className="text-[8px] text-white/30 font-black uppercase tracking-[0.2em] truncate leading-none"
+                className="text-xs text-white/60 font-normal truncate leading-tight"
                 style={{ color: 'var(--color-text-subtler)' }}
               >
                 {displayEmail}
@@ -154,13 +154,13 @@ const ProfileDropdown = () => {
           <div className="p-1.5">
             <button
               onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-none text-status-error/60 hover:bg-status-error/5 hover:text-status-error transition-colors group cursor-pointer"
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-none text-status-error/80 hover:bg-status-error/10 hover:text-status-error transition-colors group cursor-pointer"
             >
               <span className="p-1 rounded-none border border-status-error/20 bg-status-error/5 group-hover:border-status-error/40 transition-colors">
                 <LogOut size={14} />
               </span>
-              <span className="text-[10px] font-black uppercase tracking-widest">
-                Log_Out
+              <span className="text-xs font-semibold uppercase tracking-wider">
+                Log Out
               </span>
             </button>
           </div>
@@ -174,13 +174,13 @@ const ProfileDropdown = () => {
 const DropdownItem = ({ icon, label, trailing, onClick }) => (
   <button
     onClick={onClick}
-    className="w-full flex items-center justify-between px-3 py-2 rounded-none text-white/40 hover:text-white hover:bg-white/5 transition-colors group cursor-pointer"
+    className="w-full flex items-center justify-between px-3 py-2 rounded-none text-white/70 hover:text-white hover:bg-white/5 transition-colors group cursor-pointer"
   >
     <div className="flex items-center gap-3">
       <span className="p-1 rounded-none bg-white/5 group-hover:bg-white/10 transition-colors">
         {React.cloneElement(icon, { size: 14 })}
       </span>
-      <span className="text-[10px] font-black uppercase tracking-widest">
+      <span className="text-[13px] font-medium tracking-wide">
         {label}
       </span>
     </div>
