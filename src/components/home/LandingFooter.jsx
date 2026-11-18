@@ -21,17 +21,13 @@ const LandingFooter = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
           <div className="col-span-1 md:col-span-1">
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-8 h-8 bg-brand rounded-lg flex items-center justify-center p-1.5 shadow-lg ring-1 ring-white/20">
-                <div className="grid grid-cols-2 gap-1 w-full h-full">
-                  <div className="bg-white rounded-sm" />
-                  <div className="bg-white/60 rounded-sm" />
-                  <div className="bg-white/60 rounded-sm" />
-                  <div className="bg-white rounded-sm" />
-                </div>
-              </div>
-              <span className="text-xl font-black tracking-tighter text-white">
-                NexaSetu
-              </span>
+              <Link to="/" className="inline-flex items-center focus:outline-none" aria-label="NexaSetu Home">
+                <img
+                  src="/Logo.svg"
+                  alt="NexaSetu"
+                  className="h-8 md:h-9 w-auto object-contain"
+                />
+              </Link>
             </div>
             <p className="text-sm text-white/40 leading-relaxed mb-6">
               The high-performance orchestrator for modern engineering

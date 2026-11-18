@@ -88,10 +88,10 @@ const SelectPlan = () => {
             </div>
 
             <div className="space-y-2">
-              <h3 className="text-xl font-black text-white uppercase tracking-widest">
+              <h3 className="text-xl font-bold text-white uppercase tracking-wider">
                 Provisioning Workspace
               </h3>
-              <p className="text-[10px] text-white/40 font-black uppercase tracking-[0.3em]">
+              <p className="text-xs text-white/60 font-medium">
                 {progress < 30 && 'Initializing strategic kernels...'}
                 {progress >= 30 &&
                   progress < 60 &&
@@ -104,13 +104,13 @@ const SelectPlan = () => {
             </div>
 
             <div className="space-y-2">
-              <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+              <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-primary transition-all duration-300 ease-linear shadow-[0_0_15px_rgba(var(--primary-rgb),0.5)]"
                   style={{ width: `${progress}%` }}
                 ></div>
               </div>
-              <div className="flex justify-between text-[8px] font-black uppercase tracking-widest text-white/20">
+              <div className="flex justify-between text-xs font-medium uppercase tracking-wider text-white/50">
                 <span>Phase {Math.floor(progress / 25) + 1}</span>
                 <span>{Math.round(progress)}% Complete</span>
               </div>
@@ -122,21 +122,21 @@ const SelectPlan = () => {
       {/* Success Popup */}
       {showSuccess && (
         <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in zoom-in duration-300">
-          <div className="w-full max-w-md bg-[#0A0A0A] border border-status-success/30 rounded-2xl p-10 text-center shadow-[0_0_100px_rgba(var(--status-success-rgb),0.1)]">
-            <div className="w-20 h-20 bg-status-success/10 rounded-3xl flex items-center justify-center border border-status-success/20 mx-auto mb-8 animate-bounce">
+          <div className="w-full max-w-md bg-[#0A0A0A] border border-status-success/30 rounded-2xl p-8 sm:p-10 text-center shadow-[0_0_100px_rgba(var(--status-success-rgb),0.1)]">
+            <div className="w-20 h-20 bg-status-success/10 rounded-3xl flex items-center justify-center border border-status-success/20 mx-auto mb-6 animate-bounce">
               <Check className="text-status-success" size={40} />
             </div>
-            <h2 className="text-2xl font-black text-white uppercase tracking-tighter mb-4">
+            <h2 className="text-2xl font-bold text-white uppercase tracking-tight mb-3">
               Account Activated
             </h2>
-            <p className="text-xs text-white/40 font-medium leading-relaxed mb-10">
-              Your <span className="text-white">{selectedPlan?.name}</span>{' '}
+            <p className="text-sm text-white/70 font-normal leading-relaxed mb-8">
+              Your <span className="text-white font-semibold">{selectedPlan?.name}</span>{' '}
               workspace is now live. All strategic features and increased
               capacity limits have been successfully unlocked.
             </p>
             <button
               onClick={handleSuccessClose}
-              className="w-full py-4 bg-status-success text-black text-[10px] font-black uppercase tracking-widest rounded-xl hover:opacity-90 transition-all shadow-[0_0_30px_rgba(var(--status-success-rgb),0.4)]"
+              className="w-full py-3.5 bg-status-success text-black text-xs font-semibold uppercase tracking-wider rounded-xl hover:opacity-90 transition-all shadow-[0_0_30px_rgba(var(--status-success-rgb),0.4)]"
             >
               Enter Dashboard
             </button>
@@ -145,7 +145,7 @@ const SelectPlan = () => {
       )}
       {/* Toggles Container */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8 bg-white/[0.02] border border-white/5 p-4 rounded-xl">
-        <h2 className="text-xs font-black text-white uppercase tracking-widest">
+        <h2 className="text-sm font-bold text-white uppercase tracking-wider">
           Available Pricing Tiers
         </h2>
 
@@ -153,7 +153,7 @@ const SelectPlan = () => {
           {/* Billing Cycle Toggle */}
           <div className="flex items-center gap-2.5">
             <span
-              className={`text-[9px] font-black uppercase tracking-widest transition-colors ${
+              className={`text-xs font-semibold uppercase tracking-wider transition-colors ${
                 billingCycle === 'monthly' ? 'text-white' : 'text-white/40'
               }`}
             >
@@ -186,12 +186,12 @@ const SelectPlan = () => {
               </div>
             </button>
             <span
-              className={`text-[9px] font-black uppercase tracking-widest transition-colors flex items-center gap-1.5 ${
+              className={`text-xs font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5 ${
                 billingCycle === 'annual' ? 'text-white' : 'text-white/40'
               }`}
             >
               Annually
-              <span className="bg-status-success/15 border border-status-success/20 text-status-success text-[6.5px] font-black px-1.5 py-0.5 rounded tracking-wide">
+              <span className="bg-status-success/15 border border-status-success/20 text-status-success text-[10px] font-bold px-2 py-0.5 rounded tracking-wide">
                 SAVE 20%
               </span>
             </span>
@@ -200,7 +200,7 @@ const SelectPlan = () => {
           {/* Currency Toggle */}
           <div className="flex items-center gap-2.5">
             <span
-              className={`text-[9px] font-black uppercase tracking-widest transition-colors ${
+              className={`text-xs font-semibold uppercase tracking-wider transition-colors ${
                 currency === 'inr' ? 'text-white' : 'text-white/40'
               }`}
             >
@@ -229,7 +229,7 @@ const SelectPlan = () => {
               </div>
             </button>
             <span
-              className={`text-[9px] font-black uppercase tracking-widest transition-colors ${
+              className={`text-xs font-semibold uppercase tracking-wider transition-colors ${
                 currency === 'usd' ? 'text-white' : 'text-white/40'
               }`}
             >
@@ -250,34 +250,34 @@ const SelectPlan = () => {
             }`}
           >
             {subscription?.plan === plan.id && (
-              <div className="absolute -top-2.5 right-4 bg-primary text-black text-[8px] font-black uppercase px-2 py-0.5 rounded-sm shadow-sm tracking-widest">
+              <div className="absolute -top-2.5 right-4 bg-primary text-black text-[11px] font-bold uppercase px-2.5 py-0.5 rounded-[2px] shadow-sm tracking-wider">
                 Active Tier
               </div>
             )}
 
             <div className="space-y-4 flex-1">
               <div className="space-y-1">
-                <h3 className="text-sm font-black text-white uppercase tracking-widest">
+                <h3 className="text-base font-bold text-white uppercase tracking-wide">
                   {plan.name}
                 </h3>
-                <p className="text-[10px] text-white/40 font-medium leading-tight line-clamp-2">
+                <p className="text-xs text-white/50 font-normal leading-normal line-clamp-2">
                   {plan.description}
                 </p>
               </div>
 
               <div className="flex flex-col gap-1 py-2 border-y border-white/5 justify-center min-h-[48px]">
-                <div className="flex items-baseline gap-1">
-                  <span className="text-2xl font-black text-white">
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-2xl font-bold text-white tracking-tight">
                     {currency === 'inr'
                       ? `₹${billingCycle === 'monthly' ? plan.price.toLocaleString() : (plan.priceAnnual || Math.round(plan.price * 0.8)).toLocaleString()}`
                       : `$${billingCycle === 'monthly' ? plan.globalPrice || 0 : plan.globalPriceAnnual || 0}`}
                   </span>
-                  <span className="text-white/20 text-[9px] font-black uppercase tracking-wider">
+                  <span className="text-white/50 text-xs font-medium">
                     / mo
                   </span>
                 </div>
                 <span
-                  className={`text-[10px] font-bold block ${
+                  className={`text-xs font-medium block ${
                     billingCycle === 'annual' && plan.id !== 'free'
                       ? 'text-status-success'
                       : 'text-white/40'
@@ -307,12 +307,12 @@ const SelectPlan = () => {
                         className={
                           subscription?.plan === plan.id
                             ? 'text-primary mt-0.5'
-                            : 'text-white/30 mt-0.5'
+                            : 'text-white/40 mt-0.5'
                         }
-                        size={10}
+                        size={14}
                       />
-                      <span className="text-[11px] text-white/70 font-semibold leading-none">
-                        <span className="text-white font-bold">
+                      <span className="text-xs text-white/70 font-medium leading-none">
+                        <span className="text-white font-semibold">
                           {displayValue}
                         </span>{' '}
                         {displayKey}
@@ -326,9 +326,9 @@ const SelectPlan = () => {
             <button
               onClick={() => handlePlanClick(plan)}
               disabled={subscription?.plan === plan.id || isSelecting}
-              className={`mt-6 w-full py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all duration-200 border ${
+              className={`mt-6 w-full py-2.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-200 border cursor-pointer ${
                 subscription?.plan === plan.id
-                  ? 'bg-white/5 text-white/20 cursor-default border-white/5'
+                  ? 'bg-white/5 text-white/30 cursor-default border-white/5'
                   : 'bg-white text-black border-white hover:bg-primary hover:border-primary'
               }`}
             >

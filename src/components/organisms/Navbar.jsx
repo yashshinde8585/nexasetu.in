@@ -10,7 +10,6 @@ import {
   Rocket,
   Shield,
   Sparkles,
-  Zap,
   RefreshCw,
 } from 'lucide-react';
 import MagicBar from './MagicBar';
@@ -55,11 +54,11 @@ const Navbar = ({ onToggleSidebar }) => {
               <Menu size={24} aria-hidden="true" />
             </button>
             <div
-              className="text-[10px] font-black text-white flex items-center h-full"
+              className="text-sm font-semibold text-white flex items-center h-full"
               style={{ color: 'var(--color-text)' }}
             >
               <span
-                className="text-white uppercase tracking-[0.2em]"
+                className="text-white uppercase tracking-wider"
                 style={{ color: 'var(--color-text)' }}
               >
                 {(() => {
@@ -77,6 +76,7 @@ const Navbar = ({ onToggleSidebar }) => {
                     [ROUTES.GUIDED_WORK_ASSISTANT]: 'Tasks',
                     [ROUTES.LEARNING_WORKSPACE]: 'Hub',
                     [ROUTES.ADMIN_PANEL]: 'Dashboard',
+                    [ROUTES.SUPER_ADMIN]: 'Super Admin',
                     [ROUTES.PERSONAL_WORK_CONSOLE]: 'Workbench',
                     [ROUTES.PORTFOLIO || '/portfolio']: 'Portfolio',
                     [ROUTES.TEAMS]: 'Teams',
@@ -87,6 +87,8 @@ const Navbar = ({ onToggleSidebar }) => {
                     '/velocity': 'Velocity',
                     [ROUTES.PROFILE || '/profile']: 'Profile',
                     [ROUTES.PRICING]: 'Account',
+                    [ROUTES.SETTINGS]: 'Settings',
+                    '/admin/settings': 'Settings',
                     '/theme': 'Themes',
                   };
 
@@ -133,13 +135,13 @@ const Navbar = ({ onToggleSidebar }) => {
                 onClick={() =>
                   queryClient.invalidateQueries({ queryKey: ['dashboard'] })
                 }
-                className="hidden lg:flex items-center gap-2 px-3 h-8 bg-white/5 border border-white/10 text-[9px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all group rounded"
+                className="hidden lg:flex items-center gap-2 px-3 h-8 bg-background-elevated border border-border-subtle text-xs font-semibold uppercase tracking-wider text-text-subtle hover:text-text hover:bg-card transition-all group rounded-md cursor-pointer"
               >
                 <RefreshCw
                   size={12}
                   className="group-hover:rotate-180 transition-transform duration-500"
                 />
-                Sync_Workforce_Telemetry
+                Sync Team Activity
               </button>
             )}
             <NotificationTray />
@@ -148,30 +150,29 @@ const Navbar = ({ onToggleSidebar }) => {
         </>
       ) : (
         <>
-          <Link to="/" className="flex items-center gap-3 group/logo relative">
-            <div className="w-6 h-6 bg-primary flex items-center justify-center text-black transition-transform">
-              <Zap size={14} fill="currentColor" />
-            </div>
-            <span className="text-[12px] font-black tracking-[0.2em] text-white uppercase">
-              NEXA_SETU
-            </span>
+          <Link to="/" className="flex items-center group/logo relative" aria-label="NexaSetu Home">
+            <img
+              src="/Logo.svg"
+              alt="NexaSetu"
+              className="h-6 sm:h-7 w-auto object-contain"
+            />
           </Link>
 
           <div className="flex gap-4 sm:gap-6 items-center">
             {location.pathname !== ROUTES.LOGIN && (
               <Link
                 to={ROUTES.LOGIN}
-                className="text-[10px] font-black text-white/40 hover:text-white uppercase tracking-[0.2em] transition-colors whitespace-nowrap"
+                className="text-xs sm:text-sm font-semibold text-white/70 hover:text-white uppercase tracking-wider transition-colors whitespace-nowrap"
               >
-                SIGN_IN
+                Sign In
               </Link>
             )}
             {location.pathname !== ROUTES.REGISTER && (
               <Link
                 to={ROUTES.REGISTER}
-                className="text-[10px] font-black bg-white hover:bg-white/90 text-black h-9 px-4 sm:px-6 flex items-center justify-center rounded uppercase tracking-widest transition-all active:scale-95 whitespace-nowrap"
+                className="text-xs sm:text-sm font-bold bg-white hover:bg-white/90 text-black h-9 px-4 sm:px-6 flex items-center justify-center rounded uppercase tracking-wider transition-all active:scale-95 whitespace-nowrap"
               >
-                GET_STARTED
+                Get Started
               </Link>
             )}
           </div>

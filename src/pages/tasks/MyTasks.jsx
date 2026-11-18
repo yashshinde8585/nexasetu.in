@@ -36,11 +36,15 @@ const MyTasks = () => {
   } = useTasks(queryScope, queryFilter, queryUserId);
 
   const [page, setPage] = useState(1);
+  const [prevFilterKey, setPrevFilterKey] = useState(
+    `${filter}-${scope}-${search}`
+  );
 
-  // Reset to page 1 whenever the filter/scope/search changes
-  useEffect(() => {
+  const currentFilterKey = `${filter}-${scope}-${search}`;
+  if (prevFilterKey !== currentFilterKey) {
+    setPrevFilterKey(currentFilterKey);
     setPage(1);
-  }, [filter, scope, search]);
+  }
 
   // Update the URL parameters whenever the filter or scope changes.
   useEffect(() => {
@@ -60,56 +64,54 @@ const MyTasks = () => {
       {/* Page header with the title and description. */}
       <div className="flex justify-between items-end gap-6 flex-wrap">
         <div className="space-y-1">
-          <h1 className="text-[14px] font-black tracking-widest uppercase text-white">
-            {scope === 'personal' ? 'MY TASKS' : 'WORKSPACE TASKS'}
+          <h1 className="text-xl lg:text-2xl font-bold tracking-tight text-text">
+            {scope === 'personal' ? 'My Tasks' : 'Workspace Tasks'}
           </h1>
-          <p className="text-white/40 text-[9px] font-black uppercase tracking-[0.2em] max-w-xl">
+          <p className="text-xs sm:text-sm text-text-subtle max-w-xl">
             {scope === 'personal'
-              ? 'MANAGE AND TRACK YOUR ASSIGNED TASKS ACROSS ALL ACTIVE PROJECTS.'
-              : 'OVERVIEW OF ALL TASKS ACROSS THE ENTIRE WORKSPACE.'}
+              ? 'Manage and track your assigned tasks across all active projects.'
+              : 'Overview of all tasks across the entire workspace.'}
           </p>
         </div>
 
         {/* Buttons to switch between different task scopes. */}
-        <div className="flex bg-black border border-white/10 rounded p-1 shrink-0 h-fit mb-1 gap-1">
+        <div className="flex bg-background-elevated border border-border-subtle rounded-lg p-0.5 shrink-0 h-fit mb-1 gap-1">
           {[
             { id: 'personal', label: 'My Tasks' },
             { id: 'workspace', label: 'Overall Tasks' },
           ].map((s) => (
-            <Button
+            <button
               key={s.id}
-              variant={scope === s.id ? 'primary' : 'ghost'}
-              size="sm"
-              className={`rounded text-[9px] font-black uppercase tracking-[0.2em] transition-all whitespace-nowrap !shadow-none px-4 py-1.5 ${
+              className={`rounded-md text-xs font-medium transition-all whitespace-nowrap px-3.5 py-1.5 cursor-pointer ${
                 scope === s.id
-                  ? 'bg-primary text-black'
-                  : 'text-white/40 hover:text-white hover:bg-white/5'
+                  ? 'bg-primary text-white shadow-sm font-semibold'
+                  : 'text-text-subtle hover:text-text hover:bg-card/50'
               }`}
               onClick={() => setScope(s.id)}
             >
               {s.label}
-            </Button>
+            </button>
           ))}
         </div>
       </div>
 
       {/* Sub-toolbar */}
-      <div className="flex flex-col md:flex-row gap-4 p-1 justify-between items-center border-b border-white/10 pb-4">
+      <div className="flex flex-col md:flex-row gap-4 p-1 justify-between items-center border-b border-border-subtle pb-4">
         <div className="relative w-full md:w-80 group">
           <Search
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-primary transition-colors z-10"
-            size={14}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-text-subtler group-focus-within:text-primary transition-colors z-10"
+            size={15}
           />
           <input
             type="text"
-            placeholder="SEARCH TASKS..."
+            placeholder="Search tasks..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full h-9 bg-black border border-white/10 text-white rounded px-4 pl-10 focus:outline-none focus:border-primary/50 transition-all text-[10px] font-black uppercase tracking-widest placeholder:text-white/10"
+            className="w-full h-9 bg-background-elevated border border-border-subtle text-text rounded-lg px-4 pl-9 focus:outline-none focus:border-primary transition-all text-xs placeholder:text-text-subtler"
           />
         </div>
 
-        <div className="flex bg-black border border-white/10 rounded p-1 shrink-0 overflow-x-auto max-w-full no-scrollbar gap-1 w-full md:w-auto">
+        <div className="flex bg-background-elevated border border-border-subtle rounded-lg p-0.5 shrink-0 overflow-x-auto max-w-full no-scrollbar gap-1 w-full md:w-auto">
           {[
             'active',
             'in_review',
@@ -122,10 +124,10 @@ const MyTasks = () => {
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-4 py-1.5 rounded text-[9px] font-black uppercase tracking-[0.2em] transition-all whitespace-nowrap ${
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
                 filter === f
-                  ? 'bg-primary/20 border border-primary text-primary shadow-none'
-                  : 'text-white/40 hover:text-white hover:bg-white/5 border border-transparent'
+                  ? 'bg-card text-text border border-border-subtle shadow-sm font-semibold'
+                  : 'text-text-subtle hover:text-text hover:bg-card/50 border border-transparent'
               }`}
             >
               {f === 'active'
@@ -159,9 +161,9 @@ const MyTasks = () => {
             />
           ))
         ) : (
-          <div className="col-span-full py-16 text-center bg-white/5 border border-dashed border-white/10 rounded-xl animate-in zoom-in-95 duration-500">
-            <CheckCircle2 className="w-12 h-12 text-primary mx-auto mb-4 opacity-80" />
-            <h3 className="text-[14px] font-black text-white tracking-widest uppercase">
+          <div className="col-span-full py-16 text-center bg-card border border-dashed border-border-subtle rounded-xl animate-in zoom-in-95 duration-500">
+            <CheckCircle2 className="w-10 h-10 text-primary mx-auto mb-3 opacity-90" />
+            <h3 className="text-base font-semibold text-text">
               {filter === 'due'
                 ? 'No Critical Blockers'
                 : filter === 'completed'
@@ -172,16 +174,16 @@ const MyTasks = () => {
                       ? 'No Active Tasks'
                       : 'All Clear'}
             </h3>
-            <p className="text-white/50 font-black uppercase tracking-widest text-[10px] mt-4">
+            <p className="text-text-subtle text-xs mt-1.5 max-w-sm mx-auto">
               {filter === 'due'
-                ? 'ALL YOUR PENDING ITEMS ARE CURRENTLY ON SCHEDULE.'
+                ? 'All your pending items are currently on schedule.'
                 : filter === 'completed'
-                  ? "YOU HAVEN'T FINALIZED ANY TASKS IN THIS VIEW YET."
+                  ? "You haven't finalized any tasks in this view yet."
                   : filter === 'in_review'
-                    ? 'YOU ARE ALL CAUGHT UP WITH YOUR TEAM REVIEWS.'
+                    ? 'You are all caught up with your team reviews.'
                     : scope === 'personal'
-                      ? 'ALL YOUR PERSONAL TASKS ARE FULLY UP TO DATE.'
-                      : 'YOUR WORKSPACE IS FULLY SYNCHRONIZED AND UP TO DATE.'}
+                      ? 'All your personal tasks are fully up to date.'
+                      : 'Your workspace is fully synchronized and up to date.'}
             </p>
           </div>
         )}
@@ -189,8 +191,8 @@ const MyTasks = () => {
 
       {/* Pagination bar — only shown when there are multiple pages */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between border-t border-white/10 pt-4">
-          <span className="text-[8px] font-black text-white/20 uppercase tracking-widest">
+        <div className="flex items-center justify-between border-t border-border-subtle pt-4">
+          <span className="text-xs font-medium text-text-subtle">
             {(page - 1) * CARDS_PER_PAGE + 1}–
             {Math.min(page * CARDS_PER_PAGE, tasks.length)} of {tasks.length}{' '}
             tasks
@@ -199,17 +201,17 @@ const MyTasks = () => {
             <button
               disabled={page === 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="p-1.5 border border-white/10 bg-white/5 text-white/40 hover:text-white disabled:opacity-20 transition-colors cursor-pointer rounded-none"
+              className="p-1.5 border border-border-subtle bg-background-elevated text-text-subtle hover:text-text disabled:opacity-30 transition-colors cursor-pointer rounded-md"
             >
               <ChevronLeft size={14} />
             </button>
-            <span className="text-[9px] font-black text-white/40 uppercase tracking-widest px-2">
+            <span className="text-xs font-medium text-text px-2">
               {page} / {totalPages}
             </span>
             <button
               disabled={page === totalPages}
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              className="p-1.5 border border-white/10 bg-white/5 text-white/40 hover:text-white disabled:opacity-20 transition-colors cursor-pointer rounded-none"
+              className="p-1.5 border border-border-subtle bg-background-elevated text-text-subtle hover:text-text disabled:opacity-30 transition-colors cursor-pointer rounded-md"
             >
               <ChevronRight size={14} />
             </button>

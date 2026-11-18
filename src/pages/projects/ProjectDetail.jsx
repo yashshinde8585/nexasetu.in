@@ -339,10 +339,10 @@ const ProjectDetail = () => {
               {!isTicketView && isManager && (
                 <button
                   onClick={() => ui.setShowGithubPanel(!ui.showGithubPanel)}
-                  className={`h-9 px-4 rounded border font-black uppercase tracking-widest text-[9px] transition-all flex items-center justify-center gap-2 ${
+                  className={`h-9 px-3.5 rounded-md border font-semibold uppercase tracking-wider text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
                     ui.showGithubPanel
-                      ? 'bg-white text-background-dark border-white'
-                      : 'bg-background-elevated text-text-subtle border-border-subtle hover:border-border-subtle hover:bg-background-elevated'
+                      ? 'bg-card text-text border-primary'
+                      : 'bg-background-elevated text-text-subtle border-border-subtle hover:text-text hover:bg-card'
                   }`}
                 >
                   {ui.showGithubPanel ? (
@@ -350,17 +350,17 @@ const ProjectDetail = () => {
                   ) : (
                     <GitBranch size={14} />
                   )}
-                  {ui.showGithubPanel ? 'CLOSE' : 'REPO'}
+                  {ui.showGithubPanel ? 'Close' : 'Repository'}
                 </button>
               )}
 
               <button
                 disabled={isProjectLocked}
                 onClick={() => ui.setShowAiInput(!ui.showAiInput)}
-                className={`h-9 px-4 rounded border font-black uppercase tracking-widest text-[9px] transition-all flex items-center justify-center gap-2 ${isProjectLocked ? 'opacity-20 cursor-not-allowed' : ''} ${
+                className={`h-9 px-3.5 rounded-md border font-semibold uppercase tracking-wider text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${isProjectLocked ? 'opacity-20 cursor-not-allowed' : ''} ${
                   ui.showAiInput
-                    ? 'bg-status-error text-text border-status-error'
-                    : 'bg-primary text-background-dark border-primary'
+                    ? 'bg-status-error text-white border-status-error'
+                    : 'bg-primary text-white border-primary hover:bg-primary/90'
                 }`}
               >
                 {ui.showAiInput ? (
@@ -368,28 +368,28 @@ const ProjectDetail = () => {
                 ) : (
                   <Sparkles size={14} />
                 )}
-                {ui.showAiInput ? 'CLOSE' : isTicketView ? 'AI GEN' : 'AI TASK'}
+                {ui.showAiInput ? 'Close' : isTicketView ? 'Generate Tickets' : 'Generate Tasks'}
               </button>
 
               <button
                 disabled={isProjectLocked}
-                onClick={() => ui.setShowTaskForm(!ui.setShowTaskForm)}
-                className={`h-9 px-4 rounded border font-black uppercase tracking-widest text-[9px] flex items-center justify-center gap-2 transition-all active:scale-95 ${isProjectLocked ? 'opacity-20 cursor-not-allowed' : ''} ${
+                onClick={() => ui.setShowTaskForm(!ui.showTaskForm)}
+                className={`h-9 px-3.5 rounded-md border font-semibold uppercase tracking-wider text-xs flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer ${isProjectLocked ? 'opacity-20 cursor-not-allowed' : ''} ${
                   ui.showTaskForm
-                    ? 'bg-status-error text-text border-status-error'
-                    : 'bg-primary text-background-dark border-primary hover:bg-primary/90'
+                    ? 'bg-status-error text-white border-status-error'
+                    : 'bg-primary text-white border-primary hover:bg-primary/90'
                 }`}
               >
                 {ui.showTaskForm ? (
                   <CloseIcon size={14} />
                 ) : (
-                  <Plus size={14} strokeWidth={3} />
+                  <Plus size={14} strokeWidth={2.5} />
                 )}
                 {ui.showTaskForm
-                  ? 'CLOSE'
+                  ? 'Close'
                   : isTicketView
-                    ? 'NEW TICKET'
-                    : 'NEW TASK'}
+                    ? 'New Ticket'
+                    : 'New Task'}
               </button>
             </div>
           </div>

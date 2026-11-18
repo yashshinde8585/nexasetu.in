@@ -25,7 +25,7 @@ const EditTeam = () => {
   const handleUpdate = async (teamData) => {
     try {
       await updateTeam(id, teamData);
-      navigate(ROUTES.ADMIN_PANEL);
+      navigate('/teams?tab=teams');
     } catch (err) {
       console.error('Failed to update team:', err);
     }

@@ -1,62 +1,54 @@
-import React, { useState } from 'react';
-import {
-  Clock,
-  ShieldCheck,
-  GitBranch,
-  User,
-  ChevronRight,
-  Activity,
-} from 'lucide-react';
+import React from 'react';
 import { TASK_STATUS } from '../../constants';
 
 const TaskTable = ({ tasks, onTaskClick, handleStatusChange }) => {
   return (
-    <div className="space-y-6">
-      <div className="bg-background-light border-2 border-border-subtle overflow-hidden shadow-sm">
-        <div className="overflow-x-auto lg:overflow-x-visible">
+    <div className="space-y-4">
+      <div className="bg-card border border-border-subtle rounded-xl overflow-hidden shadow-sm">
+        <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b-2 border-border-subtle bg-background-elevated">
-                <th className="px-5 py-7 text-[10px] font-black text-text-muted uppercase tracking-[0.4em]">
+              <tr className="border-b border-border-subtle bg-background-elevated/60">
+                <th className="px-4 py-3 text-xs font-semibold text-text-subtle uppercase tracking-wider">
                   Priority
                 </th>
-                <th className="px-5 py-7 text-[10px] font-black text-text-muted uppercase tracking-[0.4em]">
+                <th className="px-4 py-3 text-xs font-semibold text-text-subtle uppercase tracking-wider">
                   Ticket ID
                 </th>
-                <th className="px-5 py-7 text-[10px] font-black text-text-muted uppercase tracking-[0.4em]">
+                <th className="px-4 py-3 text-xs font-semibold text-text-subtle uppercase tracking-wider">
                   Type
                 </th>
-                <th className="px-5 py-7 text-[10px] font-black text-text-muted uppercase tracking-[0.4em]">
+                <th className="px-4 py-3 text-xs font-semibold text-text-subtle uppercase tracking-wider">
                   Title
                 </th>
-                <th className="px-5 py-7 text-[10px] font-black text-text-muted uppercase tracking-[0.4em]">
+                <th className="px-4 py-3 text-xs font-semibold text-text-subtle uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-5 py-7 text-[10px] font-black text-text-muted uppercase tracking-[0.4em]">
-                  Operator
+                <th className="px-4 py-3 text-xs font-semibold text-text-subtle uppercase tracking-wider">
+                  Assignee
                 </th>
-                <th className="px-5 py-7 text-[10px] font-black text-text-muted uppercase tracking-[0.4em]">
+                <th className="px-4 py-3 text-xs font-semibold text-text-subtle uppercase tracking-wider">
                   Due Date
                 </th>
-                <th className="px-5 py-7 text-[10px] font-black text-text-muted uppercase tracking-[0.4em]">
-                  Created At
+                <th className="px-4 py-3 text-xs font-semibold text-text-subtle uppercase tracking-wider">
+                  Created
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y-2 divide-white/10">
+            <tbody className="divide-y divide-border-subtle">
               {tasks.length > 0 ? (
                 tasks.map((task) => (
                   <tr
                     key={task._id}
                     onClick={() => onTaskClick(task)}
-                    className="group hover:bg-background-elevated transition-all cursor-pointer border-l-4 border-transparent hover:border-primary"
+                    className="group hover:bg-background-elevated/50 transition-colors cursor-pointer"
                   >
-                    <td className="px-5 py-6">
-                      <div className="flex items-center gap-3">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
                         <div
-                          className={`w-2 h-2 ${
+                          className={`w-2 h-2 rounded-full ${
                             task.priority?.toUpperCase() === 'URGENT'
-                              ? 'bg-status-error animate-pulse shadow-[0_0_15px_rgba(248,113,113,0.6)]'
+                              ? 'bg-status-error animate-pulse'
                               : task.priority?.toUpperCase() === 'HIGH'
                                 ? 'bg-status-error'
                                 : task.priority?.toUpperCase() === 'MEDIUM'
@@ -65,7 +57,7 @@ const TaskTable = ({ tasks, onTaskClick, handleStatusChange }) => {
                           }`}
                         />
                         <span
-                          className={`text-[9px] font-black uppercase tracking-[0.2em] ${
+                          className={`text-xs font-medium uppercase ${
                             ['HIGH', 'URGENT'].includes(
                               task.priority?.toUpperCase()
                             )
@@ -75,144 +67,139 @@ const TaskTable = ({ tasks, onTaskClick, handleStatusChange }) => {
                                 : 'text-status-success'
                           }`}
                         >
-                          {task.priority || 'MEDIUM'}
+                          {task.priority || 'Medium'}
                         </span>
                       </div>
                     </td>
-                    <td className="px-5 py-6">
-                      <span className="text-[11px] font-black text-primary font-mono uppercase tracking-widest bg-primary/15 border-2 border-primary/40 px-3 py-1">
+                    <td className="px-4 py-3">
+                      <span className="text-xs font-semibold text-primary font-mono uppercase bg-primary/10 border border-primary/20 px-2 py-0.5 rounded">
                         {task.projectKey}-{task.taskNumber}
                       </span>
                     </td>
-                    <td className="px-5 py-6">
+                    <td className="px-4 py-3">
                       <span
-                        className={`text-[9px] font-black uppercase tracking-[0.2em] px-2 py-1 border ${
+                        className={`text-xs font-medium uppercase px-2 py-0.5 rounded border ${
                           task.type === 'bug'
-                            ? 'bg-status-error/10 border-status-error text-status-error'
+                            ? 'bg-status-error/10 border-status-error/30 text-status-error'
                             : task.type === 'epic'
-                              ? 'bg-secondary/10 border-secondary text-secondary'
+                              ? 'bg-secondary/10 border-secondary/30 text-secondary'
                               : task.type === 'story'
-                                ? 'bg-status-success/10 border-status-success text-status-success'
+                                ? 'bg-status-success/10 border-status-success/30 text-status-success'
                                 : task.type === 'spike'
-                                  ? 'bg-primary/10 border-primary text-primary'
+                                  ? 'bg-primary/10 border-primary/30 text-primary'
                                   : task.type === 'tech_debt'
-                                    ? 'bg-status-warning/10 border-status-warning text-status-warning'
+                                    ? 'bg-status-warning/10 border-status-warning/30 text-status-warning'
                                     : 'bg-background-elevated border-border-subtle text-text-subtle'
                         }`}
                       >
                         {task.type || 'TASK'}
                       </span>
                     </td>
-                    <td className="px-5 py-6">
-                      <span className="text-[12px] font-black text-text group-hover:text-primary transition-colors uppercase tracking-tight block max-w-[220px] truncate">
+                    <td className="px-4 py-3">
+                      <span className="text-xs font-medium text-text group-hover:text-primary transition-colors block max-w-[240px] truncate">
                         {task.title}
                       </span>
                     </td>
-                    <td className="px-5 py-6">
+                    <td className="px-4 py-3">
                       <select
                         value={task.status}
                         onClick={(e) => e.stopPropagation()}
                         onChange={(e) =>
                           handleStatusChange(task._id, e.target.value)
                         }
-                        className={`text-[9px] font-black px-4 py-2.5 rounded-none uppercase tracking-[0.25em] border-2 appearance-none cursor-pointer focus:outline-none transition-all ${
+                        className={`text-xs font-medium px-2.5 py-1 rounded-md border appearance-none cursor-pointer focus:outline-none transition-all ${
                           task.status === TASK_STATUS.DONE
-                            ? 'bg-status-success/15 border-status-success/60 text-status-success hover:bg-status-success/30'
+                            ? 'bg-status-success/10 border-status-success/30 text-status-success'
                             : task.status === TASK_STATUS.IN_REVIEW
-                              ? 'bg-secondary/15 border-secondary/60 text-secondary hover:bg-secondary/30'
+                              ? 'bg-secondary/10 border-secondary/30 text-secondary'
                               : task.status === TASK_STATUS.IN_PROGRESS
-                                ? 'bg-status-warning/15 border-status-warning/60 text-status-warning hover:bg-status-warning/30'
-                                : 'bg-background-elevated border-border-subtle text-text hover:bg-border-subtle'
+                                ? 'bg-status-warning/10 border-status-warning/30 text-status-warning'
+                                : 'bg-background-elevated border-border-subtle text-text'
                         }`}
                       >
                         <option
                           value={TASK_STATUS.TODO}
-                          className="bg-background-dark text-text"
+                          className="bg-card text-text"
                         >
-                          TO_DO
+                          To Do
                         </option>
                         <option
                           value={TASK_STATUS.IN_PROGRESS}
-                          className="bg-background-dark text-text"
+                          className="bg-card text-text"
                         >
-                          IN_PROGRESS
+                          In Progress
                         </option>
                         <option
                           value={TASK_STATUS.IN_REVIEW}
-                          className="bg-background-dark text-text"
+                          className="bg-card text-text"
                         >
-                          IN_REVIEW
+                          In Review
                         </option>
                         <option
                           value={TASK_STATUS.DONE}
-                          className="bg-background-dark text-text"
+                          className="bg-card text-text"
                         >
-                          DONE
+                          Done
                         </option>
                       </select>
                     </td>
-                    <td className="px-5 py-6">
+                    <td className="px-4 py-3">
                       {task.assignedUser ? (
-                        <div className="flex items-center gap-3">
-                          <div className="w-7 h-7 bg-background-elevated flex items-center justify-center text-[10px] font-black text-text border-2 border-border-subtle group-hover:border-primary transition-all">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-xs font-semibold text-primary">
                             {task.assignedUser.name[0].toUpperCase()}
                           </div>
-                          <span className="text-[10px] font-black text-text-muted uppercase tracking-[0.2em] group-hover:text-primary transition-colors whitespace-nowrap">
-                            {task.assignedUser.name.split(' ')[0]}
+                          <span className="text-xs font-medium text-text whitespace-nowrap">
+                            {task.assignedUser.name}
                           </span>
                         </div>
                       ) : (
-                        <span className="text-[10px] font-black text-text-subtle uppercase tracking-[0.2em] whitespace-nowrap">
-                          UNASSIGNED
+                        <span className="text-xs text-text-subtle whitespace-nowrap">
+                          Unassigned
                         </span>
                       )}
                     </td>
-                    <td className="px-5 py-6">
+                    <td className="px-4 py-3">
                       <span
-                        className={`text-[9px] font-black uppercase tracking-[0.2em] whitespace-nowrap transition-colors ${
+                        className={`text-xs whitespace-nowrap transition-colors ${
                           task.dueDate &&
                           new Date(task.dueDate) < new Date() &&
                           task.status !== TASK_STATUS.DONE
-                            ? 'text-status-error'
+                            ? 'text-status-error font-semibold'
                             : task.dueDate
-                              ? 'text-text-muted group-hover:text-text'
-                              : 'text-primary/40'
+                              ? 'text-text-subtle'
+                              : 'text-text-subtler'
                         }`}
                       >
                         {task.dueDate
-                          ? new Date(task.dueDate)
-                              .toLocaleDateString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                              })
-                              .toUpperCase()
+                          ? new Date(task.dueDate).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                            })
                           : task.estimatedDuration
                             ? (() => {
                                 const mins = task.estimatedDuration || 0;
                                 const suggested = new Date(
                                   Date.now() + mins * 60 * 1000
                                 );
-                                return `~ ${suggested.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase()}`;
+                                return `~ ${suggested.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
                               })()
-                            : 'NOT SET'}
+                            : 'Not set'}
                       </span>
                     </td>
-                    <td className="px-5 py-6">
-                      <span className="text-[9px] font-black text-text/70 uppercase tracking-[0.2em] whitespace-nowrap group-hover:text-text-muted transition-colors">
-                        {task.createdFormatted || 'NEW'}
+                    <td className="px-4 py-3">
+                      <span className="text-xs text-text-subtle whitespace-nowrap">
+                        {task.createdFormatted || 'New'}
                       </span>
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="8" className="px-5 py-32 text-center">
-                    <div className="flex flex-col items-center justify-center grayscale opacity-40">
-                      <div className="w-20 h-1 bg-white/40 mb-4" />
-                      <span className="text-[11px] font-black uppercase tracking-[0.4em]">
-                        No Records Found
-                      </span>
-                    </div>
+                  <td colSpan="8" className="px-4 py-16 text-center">
+                    <span className="text-xs text-text-subtle">
+                      No tasks found
+                    </span>
                   </td>
                 </tr>
               )}

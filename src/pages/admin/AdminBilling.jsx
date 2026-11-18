@@ -1,24 +1,51 @@
 import React, { useState } from 'react';
 import { useBilling } from '../../hooks/useBilling';
-import { Check, ArrowRight, Loader2, X } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { getMembers } from '../../api/teamApi';
+import { useQuery } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
+import {
+  Check,
+  ArrowRight,
+  Loader2,
+  FileText,
+} from 'lucide-react';
 
 const AdminBilling = () => {
-  const { plans, subscription, planName, isLoading, selectPlan, isSelecting } =
-    useBilling();
+  const { user } = useAuth();
+  const {
+    plans,
+    subscription,
+    limits,
+    planName,
+    usage,
+    isLoading,
+    selectPlan,
+  } = useBilling();
+
   const [showAllPlans, setShowAllPlans] = useState(false);
   const [isProvisioning, setIsProvisioning] = useState(false);
   const [progress, setProgress] = useState(0);
   const [selectedPlan, setSelectedPlan] = useState(null);
-  const [currency, setCurrency] = useState('inr');
+  const [currency, setCurrency] = useState('inr'); // 'inr' | 'usd'
 
-  if (isLoading)
+  // Query workspace members to ensure billing seat count matches Team directory exactly
+  const teamMembersQuery = useQuery({
+    queryKey: ['workspace-members-billing', user?.workspaceId],
+    queryFn: () => getMembers({ page: 1, limit: 1 }),
+    enabled: !!user?.workspaceId,
+    staleTime: 60 * 1000,
+  });
+
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+        <div className="w-6 h-6 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
       </div>
     );
+  }
 
-  const currentPlanId = subscription?.plan || 'free';
+  const currentPlanId = (subscription?.plan || 'free').toLowerCase();
   const currentPlan =
     plans.find((p) => p.id === currentPlanId) ||
     plans.find((p) => p.id === 'free');
@@ -27,6 +54,102 @@ const AdminBilling = () => {
     (p) => p.price > (currentPlan?.price || 0)
   );
   const featuredUpgrade = availableUpgrades[0];
+
+  // Helper to distinguish unlimited quotas from missing limits
+  const isUnlimited = (val) => {
+    if (val === Infinity || val === 'Infinity') return true;
+    if (currentPlanId === 'enterprise' && (val === null || val === undefined)) {
+      return true;
+    }
+    return false;
+  };
+
+  // Seat counts verified against workspace membership
+  const totalSeats =
+    teamMembersQuery.data?.total ??
+    usage?.users ??
+    subscription?.usage?.users ??
+    1;
+
+  const activeMembersCount =
+    usage?.activeUsers ??
+    (teamMembersQuery.data?.items
+      ? teamMembersQuery.data.items.filter((m) => m.status !== 'Invited').length
+      : totalSeats);
+
+  const pendingInvitesCount =
+    usage?.pendingInvites ??
+    (teamMembersQuery.data?.invitations
+      ? teamMembersQuery.data.invitations.length
+      : 0);
+
+  const seatLimit = limits?.users ?? currentPlan?.features?.users;
+  const isSeatsUnlimited = isUnlimited(seatLimit);
+
+  // Subscription pricing and renewal date formatting
+  const planPriceFormatted =
+    currentPlan?.price === 0
+      ? 'Free'
+      : currency === 'inr'
+        ? `₹${currentPlan?.price?.toLocaleString() || 0} / month`
+        : `$${currentPlan?.globalPrice || 0} / month`;
+
+  const getRenewalDetails = () => {
+    if (subscription?.endDate) {
+      return `Renews on ${new Date(subscription.endDate).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })}`;
+    }
+    if (subscription?.startDate) {
+      const start = new Date(subscription.startDate);
+      const nextRenewal = new Date(start);
+      nextRenewal.setMonth(nextRenewal.getMonth() + 1);
+      while (nextRenewal < new Date()) {
+        nextRenewal.setMonth(nextRenewal.getMonth() + 1);
+      }
+      return `Renews on ${nextRenewal.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })} • Monthly cycle`;
+    }
+    return currentPlanId === 'free' ? 'No expiration • Free tier' : 'N/A';
+  };
+
+  // Usage statistics for resource quotas
+  const usedProjects =
+    usage?.projects ?? subscription?.usage?.projects ?? 0;
+  const usedAI = usage?.aiUsage ?? subscription?.usage?.aiUsage ?? 0;
+  const usedSprints =
+    usage?.sprints ?? subscription?.usage?.sprints ?? 0;
+
+  const rawLimits = limits || currentPlan?.features;
+
+  const quotaCards = [
+    {
+      label: 'Projects',
+      used: usedProjects,
+      totalLimit: rawLimits?.projects,
+      isUncapped: isUnlimited(rawLimits?.projects),
+      subtext: 'Workspace projects',
+    },
+    {
+      label: 'Sprints',
+      used: usedSprints,
+      totalLimit: rawLimits?.sprints,
+      isUncapped: isUnlimited(rawLimits?.sprints),
+      subtext: 'Sprint cycles',
+    },
+    {
+      label: 'AI credits',
+      used: usedAI,
+      totalLimit: rawLimits?.aiUsage,
+      isUncapped: isUnlimited(rawLimits?.aiUsage),
+      subtext: 'AI compute usage',
+    },
+  ];
 
   const handleUpgrade = async (plan) => {
     setSelectedPlan(plan);
@@ -58,6 +181,7 @@ const AdminBilling = () => {
       console.error('Upgrade failed:', err);
       clearInterval(timer);
       setIsProvisioning(false);
+      toast.error('Failed to activate plan. Please try again.');
     }
   };
 
@@ -69,16 +193,16 @@ const AdminBilling = () => {
           <div className="w-full max-w-xs space-y-6 text-center">
             <Loader2 size={28} className="text-primary animate-spin mx-auto" />
             <div className="space-y-2">
-              <h3 className="text-[11px] font-black uppercase tracking-widest text-white">
+              <h3 className="text-sm font-semibold text-white">
                 Activating {selectedPlan?.name}
               </h3>
-              <div className="h-1 w-full bg-white/10 rounded overflow-hidden">
+              <div className="h-1.5 w-full bg-white/10 rounded overflow-hidden">
                 <div
                   className="h-full bg-primary transition-all duration-300"
                   style={{ width: `${progress}%` }}
                 />
               </div>
-              <p className="text-[9px] uppercase font-black tracking-[0.2em] text-white/40">
+              <p className="text-xs font-medium text-white/60">
                 {Math.round(progress)}% complete
               </p>
             </div>
@@ -87,154 +211,174 @@ const AdminBilling = () => {
       )}
 
       {/* Page Header */}
-      <div className="flex justify-between items-end gap-6 flex-wrap border-b border-white/10 pb-4">
+      <div className="flex justify-between items-end gap-6 flex-wrap border-b border-border-subtle pb-4">
         <div className="space-y-1">
-          <h1 className="text-[14px] font-black tracking-widest uppercase text-white">
+          <h1 className="text-xl lg:text-2xl font-bold tracking-tight text-text">
             Billing
           </h1>
-          <p className="text-white/40 text-[9px] font-black uppercase tracking-[0.2em] max-w-xl">
-            Manage your workspace subscription and usage.
+          <p className="text-text-subtle text-sm font-normal max-w-xl">
+            Manage your workspace subscription, quota limits, and billing details.
           </p>
         </div>
-        <div className="flex items-center gap-4">
-          {/* Currency Toggle */}
-          <div className="flex items-center bg-white/5 border border-white/10 p-0.5 rounded-lg h-9">
-            <button
-              onClick={() => setCurrency('inr')}
-              className={`px-3 h-full text-[8px] font-black uppercase tracking-widest transition-all rounded cursor-pointer ${
-                currency === 'inr'
-                  ? 'bg-white text-black'
-                  : 'text-white/40 hover:text-white'
-              }`}
-            >
-              INR (₹)
-            </button>
-            <button
-              onClick={() => setCurrency('usd')}
-              className={`px-3 h-full text-[8px] font-black uppercase tracking-widest transition-all rounded cursor-pointer ${
-                currency === 'usd'
-                  ? 'bg-white text-black'
-                  : 'text-white/40 hover:text-white'
-              }`}
-            >
-              USD ($)
-            </button>
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Supported Billing Currencies Selector */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-text-subtle hidden md:inline">
+              Billing currency:
+            </span>
+            <div className="flex items-center bg-background-elevated border border-border-subtle p-0.5 rounded-lg h-9">
+              <button
+                onClick={() => setCurrency('inr')}
+                title="Supported billing currency: Indian Rupee (₹)"
+                className={`px-3 h-full text-xs font-medium transition-all rounded cursor-pointer ${currency === 'inr'
+                  ? 'bg-primary text-white shadow-sm font-semibold'
+                  : 'text-text-subtle hover:text-text'
+                  }`}
+              >
+                INR (₹)
+              </button>
+              <button
+                onClick={() => setCurrency('usd')}
+                title="Supported billing currency: US Dollar ($)"
+                className={`px-3 h-full text-xs font-medium transition-all rounded cursor-pointer ${currency === 'usd'
+                  ? 'bg-primary text-white shadow-sm font-semibold'
+                  : 'text-text-subtle hover:text-text'
+                  }`}
+              >
+                USD ($)
+              </button>
+            </div>
           </div>
+
           <button
             onClick={() => setShowAllPlans(!showAllPlans)}
-            className="h-9 px-6 bg-white/5 border border-white/10 rounded text-[9px] font-black uppercase tracking-[0.2em] transition-all hover:bg-white/10 flex items-center justify-center gap-2 group cursor-pointer"
+            className="h-9 px-4 bg-background-elevated border border-border-subtle rounded-lg text-xs font-medium text-text transition-all hover:bg-background-elevated/80 flex items-center justify-center gap-2 group cursor-pointer"
           >
-            {showAllPlans ? 'Hide Plans' : 'View All Plans'}{' '}
+            {showAllPlans ? 'Hide plans' : 'View all plans'}
             <ArrowRight
-              size={14}
-              className={`${showAllPlans ? 'rotate-90' : ''} transition-transform`}
+              size={13}
+              className={`${showAllPlans ? 'rotate-90' : ''} transition-transform text-text-subtle`}
             />
           </button>
         </div>
       </div>
 
-      {/* Current Plan Card */}
-      <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 group hover:bg-white/10 transition-all">
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded bg-primary/10 flex items-center justify-center text-primary">
-            <Check size={16} strokeWidth={3} />
+      {/* Current Plan Card - Unified with Enterprise entitlements (No duplicate section) */}
+      <div className="bg-card border border-border-subtle rounded-xl p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-5 hover:border-border transition-all">
+        <div className="space-y-3 flex-1">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h2 className="text-lg font-bold text-text tracking-tight">
+              {planName || currentPlan?.name || 'Enterprise'}
+            </h2>
+            <span className="px-2 py-0.5 bg-status-success/10 border border-status-success/20 text-status-success text-xs font-medium rounded">
+              {subscription?.status ? (subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1)) : 'Active'}
+            </span>
           </div>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <h2 className="text-[11px] font-black uppercase tracking-widest text-white">
-                {planName}
-              </h2>
-              <span className="px-2 py-0.5 bg-primary/10 border border-primary/20 text-primary text-[8px] font-black uppercase tracking-widest rounded">
-                Active
+
+          <div className="space-y-1.5">
+            <div className="flex items-baseline gap-2 flex-wrap">
+              <span className="text-xl font-bold tracking-tight text-text">
+                {planPriceFormatted}
+              </span>
+              <span className="text-xs text-text-subtle">
+                • {getRenewalDetails()}
               </span>
             </div>
-            <p className="text-white/40 text-[9px] font-black uppercase tracking-[0.2em]">
-              Current Plan
-            </p>
+            {currentPlanId === 'enterprise' && (
+              <p className="text-xs text-text-subtler font-normal">
+                Confirmed entitlements: Unlimited projects, sprints, team seats, and AI credits with priority support.
+              </p>
+            )}
           </div>
+
         </div>
-        <div className="sm:text-right border-t sm:border-t-0 sm:border-l border-white/10 pt-4 sm:pt-0 sm:pl-4 w-full sm:w-auto">
-          <p className="text-white/40 text-[8px] font-black uppercase tracking-[0.2em] mb-1">
-            Users
+
+        {/* Billed seats verified against workspace membership */}
+        <div className="md:text-right border-t md:border-t-0 md:border-l border-border-subtle pt-4 md:pt-0 md:pl-6 w-full md:w-auto shrink-0 space-y-1">
+          <p className="text-text-subtle text-xs font-medium">
+            Billed seats
           </p>
-          <p className="text-xl font-black tracking-tighter tabular-nums text-white">
-            {subscription?.usage?.users || 1}
+          <div className="flex md:justify-end items-baseline gap-1.5">
+            <p className="text-2xl font-bold tracking-tight tabular-nums text-text">
+              {totalSeats}
+            </p>
+            <span className="text-xs text-text-subtler font-medium">
+              / {isSeatsUnlimited ? 'Unlimited' : (seatLimit ?? 'N/A')}
+            </span>
+          </div>
+          <p className="text-text-subtler text-xs">
+            {activeMembersCount} active
+            {pendingInvitesCount > 0 ? ` • ${pendingInvitesCount} invited` : ''}
           </p>
         </div>
       </div>
 
-      {/* Usage Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          {
-            label: 'Projects',
-            used: subscription?.usage?.projects || 0,
-            total: subscription?.limits?.projects,
-          },
-          {
-            label: 'AI Credits',
-            used: subscription?.usage?.aiUsage || 0,
-            total: subscription?.limits?.aiUsage,
-          },
-          {
-            label: 'Sprints',
-            used: subscription?.usage?.sprints || 0,
-            total: subscription?.limits?.sprints,
-          },
-          { label: 'Uptime', used: '99.9', total: '100', unit: '%' },
-        ].map((stat, i) => (
+      {/* Usage Stats Grid - 3 Resource Quota Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {quotaCards.map((stat, i) => (
           <div
             key={i}
-            className="bg-white/[0.02] border border-white/5 rounded-xl p-4 space-y-3"
+            className="bg-card border border-border-subtle rounded-xl p-4 space-y-2.5"
           >
-            <span className="text-[9px] font-black text-white/40 uppercase tracking-[0.2em]">
+            <span className="text-xs font-medium text-text-subtle">
               {stat.label}
             </span>
-            <div className="flex items-baseline gap-1">
-              <span className="text-[14px] font-black tracking-widest uppercase text-white">
+
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-2xl font-bold tracking-tight text-text">
                 {stat.used}
               </span>
-              <span className="text-[9px] text-white/20 font-black tracking-widest">
-                / {stat.total === Infinity ? '∞' : stat.total}
-                {stat.unit}
+              <span className="text-xs text-text-subtler font-medium">
+                / {stat.isUncapped ? 'Unlimited' : (stat.totalLimit ?? 'N/A')}
               </span>
             </div>
-            <div className="h-1 w-full bg-white/5 rounded overflow-hidden">
-              <div
-                className="h-full bg-primary/40 transition-all duration-500"
-                style={{
-                  width: `${stat.total === Infinity ? 20 : (stat.used / stat.total) * 100}%`,
-                }}
-              />
-            </div>
+
+            {/* Quota Progress Bar for capped tiers or text indicator */}
+            {!stat.isUncapped && stat.totalLimit && typeof stat.totalLimit === 'number' ? (
+              <div className="h-1.5 w-full bg-background-elevated rounded overflow-hidden">
+                <div
+                  className="h-full bg-primary/40 transition-all duration-500"
+                  style={{
+                    width: `${Math.min(100, Math.round(((stat.used || 0) / stat.totalLimit) * 100))}%`,
+                  }}
+                />
+              </div>
+            ) : (
+              <p className="text-xs text-text-subtler font-normal">
+                {stat.subtext}
+              </p>
+            )}
           </div>
         ))}
       </div>
 
       {/* All Plans Grid */}
       {showAllPlans && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-in fade-in slide-in-from-top-2 duration-500">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
           {plans.map((plan) => (
             <div
               key={plan.id}
-              className={`p-5 rounded-xl border transition-all ${plan.id === currentPlanId ? 'bg-primary/5 border-primary/30' : 'bg-white/5 border-white/10'} space-y-4 flex flex-col`}
+              className={`p-5 rounded-xl border transition-all ${plan.id === currentPlanId
+                ? 'bg-primary/5 border-primary/30'
+                : 'bg-card border-border-subtle'
+                } space-y-4 flex flex-col`}
             >
               <div className="space-y-1">
-                <h3 className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em]">
+                <h3 className="text-xs font-semibold text-text-subtle">
                   {plan.name}
                 </h3>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-xl font-black text-white tracking-widest">
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-2xl font-bold text-text tracking-tight">
                     {currency === 'inr'
                       ? `₹${plan.price}`
                       : `$${plan.globalPrice || 0}`}
                   </span>
-                  <span className="text-[9px] text-white/40 font-black uppercase tracking-[0.2em]">
+                  <span className="text-xs text-text-subtle font-medium">
                     / month
                   </span>
                 </div>
               </div>
-              <ul className="space-y-3 flex-1 pt-2 border-t border-white/5 mt-2">
+              <ul className="space-y-2.5 flex-1 pt-2 border-t border-border-subtle mt-2">
                 {Object.entries(plan.features).map(([key, val]) => {
                   const displayVal =
                     val === Infinity || val === null || val === 'Infinity'
@@ -247,10 +391,10 @@ const AdminBilling = () => {
                   return (
                     <li
                       key={key}
-                      className="flex items-start gap-2 text-[9px] text-white/60 font-black uppercase tracking-[0.1em]"
+                      className="flex items-start gap-2 text-xs text-text-subtle font-medium"
                     >
                       <Check
-                        size={12}
+                        size={14}
                         className="text-primary shrink-0 mt-0.5"
                       />
                       <span>
@@ -263,13 +407,13 @@ const AdminBilling = () => {
               {plan.id !== currentPlanId ? (
                 <button
                   onClick={() => handleUpgrade(plan)}
-                  className="w-full h-9 bg-white text-black hover:bg-primary hover:text-black rounded text-[9px] font-black uppercase tracking-[0.2em] transition-all active:scale-95 flex items-center justify-center mt-4 cursor-pointer"
+                  className="w-full h-9 bg-primary text-black hover:bg-primary/90 rounded text-xs font-semibold transition-all active:scale-95 flex items-center justify-center mt-4 cursor-pointer"
                 >
-                  Select Plan
+                  Select plan
                 </button>
               ) : (
-                <div className="w-full h-9 border border-white/10 text-white/30 text-[9px] font-black uppercase tracking-[0.2em] rounded flex items-center justify-center gap-2 mt-4 bg-black/40">
-                  <Check size={12} /> Current Plan
+                <div className="w-full h-9 border border-border-subtle text-text-subtle text-xs font-semibold rounded flex items-center justify-center gap-2 mt-4 bg-background-elevated">
+                  <Check size={13} /> Current plan
                 </div>
               )}
             </div>
@@ -277,134 +421,155 @@ const AdminBilling = () => {
         </div>
       )}
 
-      {/* Featured Upgrade Card */}
-      {!showAllPlans &&
-        (featuredUpgrade ? (
-          <div className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-5 group hover:bg-white/10 transition-all relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 blur-[40px] -z-10" />
-
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div className="space-y-1">
-                <h2 className="text-[11px] font-black uppercase tracking-widest text-white">
-                  Upgrade to {featuredUpgrade.name}
-                </h2>
-                <p className="text-white/40 text-[9px] font-black uppercase tracking-[0.2em]">
-                  {currency === 'inr'
-                    ? `₹${featuredUpgrade.price}`
-                    : `$${featuredUpgrade.globalPrice || 0}`}{' '}
-                  per month
-                </p>
-              </div>
-              <div className="flex items-center gap-3 w-full sm:w-auto">
-                <button
-                  onClick={() => setShowAllPlans(true)}
-                  className="text-white/40 hover:text-white text-[9px] font-black uppercase tracking-[0.2em] transition-colors flex-1 sm:flex-initial text-center py-2 px-4 cursor-pointer"
-                >
-                  Compare Plans
-                </button>
-                <button
-                  onClick={() => setShowAllPlans(true)}
-                  className="bg-primary hover:bg-primary/90 text-black px-6 h-9 rounded text-[9px] font-black uppercase tracking-[0.2em] transition-all active:scale-95 flex-1 sm:flex-initial flex items-center justify-center cursor-pointer"
-                >
-                  Upgrade Now
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 border-t border-white/10 pt-5">
-              {Object.entries(featuredUpgrade.features)
-                .slice(0, 4)
-                .map(([key, val], idx) => {
-                  const displayVal =
-                    val === Infinity || val === null || val === 'Infinity'
-                      ? 'Unlimited'
-                      : val;
-                  const displayKey =
-                    key === 'aiUsage'
-                      ? 'AI Credits'
-                      : key.charAt(0).toUpperCase() + key.slice(1);
-                  return (
-                    <div
-                      key={idx}
-                      className="flex items-start gap-2 text-[9px] font-black text-white/60 uppercase tracking-[0.1em]"
-                    >
-                      <Check
-                        size={12}
-                        className="text-primary mt-0.5 shrink-0"
-                      />
-                      <span className="truncate">
-                        {displayVal} {displayKey}
-                      </span>
-                    </div>
-                  );
-                })}
-            </div>
-          </div>
-        ) : (
-          <div className="bg-white/5 border border-white/10 rounded-xl p-6 flex flex-col items-center justify-center gap-3 text-center">
-            <div className="w-10 h-10 bg-primary/10 rounded flex items-center justify-center text-primary">
-              <Check size={16} strokeWidth={3} />
-            </div>
+      {/* Featured Upgrade Card (Only shown if a higher plan is available, e.g. Free or Pro) */}
+      {!showAllPlans && featuredUpgrade && (
+        <div className="bg-card border border-border-subtle rounded-xl p-5 space-y-4 group hover:border-border transition-all">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div className="space-y-1">
-              <h2 className="text-[11px] font-black uppercase tracking-widest text-white">
-                You're on the highest plan
+              <h2 className="text-base font-semibold text-text">
+                Upgrade to {featuredUpgrade.name}
               </h2>
-              <p className="text-white/40 text-[9px] font-black uppercase tracking-[0.2em]">
-                Your workspace has access to all features.
+              <p className="text-text-subtle text-xs font-normal">
+                {currency === 'inr'
+                  ? `₹${featuredUpgrade.price}`
+                  : `$${featuredUpgrade.globalPrice || 0}`}{' '}
+                per month
               </p>
             </div>
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <button
+                onClick={() => setShowAllPlans(true)}
+                className="text-text-subtle hover:text-text text-xs font-medium transition-colors flex-1 sm:flex-initial text-center py-2 px-3 cursor-pointer"
+              >
+                Compare plans
+              </button>
+              <button
+                onClick={() => handleUpgrade(featuredUpgrade)}
+                className="bg-primary hover:bg-primary/90 text-black px-4 h-9 rounded text-xs font-semibold transition-all active:scale-95 flex-1 sm:flex-initial flex items-center justify-center cursor-pointer"
+              >
+                Upgrade now
+              </button>
+            </div>
           </div>
-        ))}
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 border-t border-border-subtle pt-4">
+            {Object.entries(featuredUpgrade.features)
+              .slice(0, 4)
+              .map(([key, val], idx) => {
+                const displayVal =
+                  val === Infinity || val === null || val === 'Infinity'
+                    ? 'Unlimited'
+                    : val;
+                const displayKey =
+                  key === 'aiUsage'
+                    ? 'AI Credits'
+                    : key.charAt(0).toUpperCase() + key.slice(1);
+                return (
+                  <div
+                    key={idx}
+                    className="flex items-start gap-2 text-xs text-text-subtle font-medium"
+                  >
+                    <Check
+                      size={14}
+                      className="text-primary mt-0.5 shrink-0"
+                    />
+                    <span className="truncate">
+                      {displayVal} {displayKey}
+                    </span>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
 
       {/* Payment Method */}
-      <div className="space-y-4">
+      <div className="space-y-2.5">
         <div className="flex justify-between items-center px-1">
-          <h3 className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">
-            Payment Method
+          <h3 className="text-xs font-semibold text-text-subtle">
+            Payment method
           </h3>
-          <button className="text-[9px] font-black text-primary hover:underline uppercase tracking-widest">
+          <button
+            onClick={() => {
+              toast('Direct provisioning is active for this workspace. No card updates required.', {
+                icon: 'ℹ️',
+                style: {
+                  borderRadius: '10px',
+                  background: 'var(--color-background-elevated)',
+                  color: 'var(--color-text)',
+                  border: '1px solid var(--color-border-subtle)',
+                  fontSize: '13px',
+                },
+              });
+            }}
+            className="text-xs font-medium text-primary hover:underline cursor-pointer"
+          >
             Update
           </button>
         </div>
-        <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:bg-white/10 transition-all">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-7 bg-white/10 rounded flex items-center justify-center text-[8px] font-black text-white/40 tracking-widest">
-              VISA
-            </div>
-            <div className="space-y-1">
-              <p className="text-[11px] font-black tracking-widest text-white uppercase">
-                •••• •••• •••• 4242
-              </p>
-              <p className="text-[8px] font-black text-white/40 uppercase tracking-[0.2em]">
-                Expires 12/28
-              </p>
-            </div>
+        <div className="bg-card border border-border-subtle rounded-xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:border-border transition-all">
+          <div className="flex items-center gap-3.5">
+            {subscription?.paymentMethod?.last4 ? (
+              <>
+                <div className="w-12 h-7 bg-background-elevated border border-border-subtle rounded flex items-center justify-center text-xs font-semibold text-text capitalize">
+                  {subscription.paymentMethod.brand || 'Card'}
+                </div>
+                <div className="space-y-0.5">
+                  <p className="text-sm font-semibold tracking-wide text-text">
+                    •••• •••• •••• {subscription.paymentMethod.last4}
+                  </p>
+                  <p className="text-xs text-text-subtler font-normal">
+                    Expires {subscription.paymentMethod.expMonth || 'MM'}/
+                    {subscription.paymentMethod.expYear || 'YY'}
+                  </p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="w-10 h-7 bg-background-elevated border border-border-subtle rounded flex items-center justify-center text-xs font-medium text-text-subtler">
+                  N/A
+                </div>
+                <div className="space-y-0.5">
+                  <p className="text-sm font-medium text-text">
+                    No payment method on file
+                  </p>
+                  <p className="text-xs text-text-subtler font-normal">
+                    Direct sandbox provisioning • No payment method required or billed
+                  </p>
+                </div>
+              </>
+            )}
           </div>
-          <div className="sm:text-right">
-            <p className="text-[10px] font-black text-white/80 tracking-widest uppercase">
-              billing@nexasetu.ai
+          <div className="sm:text-right border-t sm:border-t-0 border-border-subtle pt-3 sm:pt-0 w-full sm:w-auto">
+            <p className="text-sm font-medium text-text select-all">
+              {user?.email || 'N/A'}
             </p>
-            <p className="text-[8px] font-black text-white/40 uppercase tracking-[0.2em]">
-              Billing Email
+            <p className="text-xs text-text-subtler font-normal">
+              Billing contact email
             </p>
           </div>
         </div>
       </div>
 
-      {/* Transaction History */}
-      <div className="space-y-4 pt-2">
-        <div className="px-1">
-          <h3 className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">
-            Transaction History
+      {/* Transaction History - Compact Empty State */}
+      <div className="space-y-2 pt-1">
+        <div className="px-1 flex justify-between items-center">
+          <h3 className="text-xs font-semibold text-text-subtle">
+            Transaction history
           </h3>
+          <span className="text-xs font-medium text-text-subtler">
+            0 invoices
+          </span>
         </div>
-        <div className="bg-white/5 border border-white/10 rounded-xl p-8 flex flex-col items-center justify-center gap-3">
-          <div className="w-8 h-8 bg-white/5 rounded border border-white/10 flex items-center justify-center text-white/20">
-            <X size={14} />
+        <div className="bg-card border border-border-subtle rounded-lg px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-2.5 text-text-subtle">
+            <FileText size={15} className="text-text-subtler shrink-0" />
+            <span className="text-text font-medium">No billing history recorded</span>
+            <span className="text-text-subtler hidden md:inline">• Invoices will appear here once billing is active</span>
           </div>
-          <p className="text-white/40 text-[9px] font-black uppercase tracking-[0.2em]">
-            No transactions yet
-          </p>
+          <span className="text-[11px] text-text-subtler self-start sm:self-auto">
+            No payment transactions or invoices have been billed for this workspace yet.
+          </span>
         </div>
       </div>
     </div>

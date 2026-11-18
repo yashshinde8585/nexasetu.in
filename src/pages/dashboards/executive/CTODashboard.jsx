@@ -38,6 +38,18 @@ const CTODashboard = () => {
 
   return (
     <div className="min-h-screen bg-background text-text p-4 lg:p-6 font-sans selection:bg-primary selection:text-text max-w-screen-2xl mx-auto">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <div>
+          <h1 className="text-xl lg:text-2xl font-bold tracking-tight text-text">
+            CTO Executive Dashboard
+          </h1>
+          <p className="text-xs sm:text-sm text-text-subtle">
+            High-level organizational engineering telemetry, velocity, and delivery risks.
+          </p>
+        </div>
+      </div>
+
       {/* 1. Global Performance metrics */}
       <div
         id="cto-performance-strip"

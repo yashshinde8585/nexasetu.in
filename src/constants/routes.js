@@ -20,6 +20,7 @@ export const ROUTES = {
   QUALITY_COMMAND: '/quality-command',
   HR: '/hr',
   ADMIN_PANEL: '/admin/dashboard',
+  SUPER_ADMIN: '/super-admin',
   LOGIN: '/login',
   REGISTER: '/register',
   PROFILE: '/profile',

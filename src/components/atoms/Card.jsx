@@ -1,7 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 
-// A premium container component inspired by glassmorphism design.
 const Card = ({
   children,
   variant = 'default',
@@ -12,13 +11,13 @@ const Card = ({
   ...props
 }) => {
   const baseStyles =
-    'relative overflow-hidden rounded-2xl sm:rounded-3xl border border-white/5 transition-all duration-300';
+    'relative overflow-hidden rounded-xl border border-border-subtle transition-all duration-200';
 
   const variants = {
-    default: 'bg-[#1E1E2E]/60 backdrop-blur-xl',
-    glass: 'glass-dark',
-    primary: 'bg-primary/5 border-primary/20 backdrop-blur-xl',
-    secondary: 'bg-secondary/5 border-secondary/20 backdrop-blur-xl',
+    default: 'bg-card text-text',
+    glass: 'bg-background-elevated/70 backdrop-blur-md text-text',
+    primary: 'bg-primary/5 border-primary/20 text-text',
+    secondary: 'bg-background-elevated border-border-subtle text-text',
   };
 
   const paddings = {
@@ -29,7 +28,7 @@ const Card = ({
   };
 
   const hoverStyles = hover
-    ? 'hover:border-white/20 hover:shadow-2xl hover:shadow-black/50'
+    ? 'hover:border-border hover:shadow-md'
     : '';
 
   return (
@@ -48,6 +47,7 @@ Card.propTypes = {
   padding: PropTypes.oneOf(['none', 'sm', 'md', 'lg']),
   className: PropTypes.string,
   hover: PropTypes.bool,
+  as: PropTypes.elementType,
 };
 
 export default Card;
