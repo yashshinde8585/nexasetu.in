@@ -92,9 +92,9 @@ export const privateRoutes = [
     title: 'Project Team',
   },
   {
-    path: '/project-info',
+    path: ROUTES.SPRINTS,
     component: ProjectInfo,
-    title: 'Project Information',
+    title: 'Sprints',
   },
   { path: ROUTES.DASHBOARD, component: Dashboard, title: 'General Dashboard' },
   {
@@ -130,14 +130,14 @@ export const privateRoutes = [
     component: AddTeamMember,
     permission: PERMISSIONS.INVITE_USERS,
     fallback: ROUTES.TEAMS,
-    title: 'Invite Team Member',
+    title: 'Invite Team Members',
   },
   {
     path: '/project-setup',
     component: ProjectSetup,
     permission: PERMISSIONS.CREATE_PROJECT,
     fallback: ROUTES.DASHBOARD,
-    title: 'Create Project Workspace',
+    title: 'Create Project',
   },
 
   // Role-based Multi-Dashboards

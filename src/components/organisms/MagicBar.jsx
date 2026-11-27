@@ -307,7 +307,7 @@ const MagicBar = () => {
 };
 
 const SafeMagicBar = (props) => (
-  <ErrorBoundary>
+  <ErrorBoundary scope="component">
     <MagicBar {...props} />
   </ErrorBoundary>
 );

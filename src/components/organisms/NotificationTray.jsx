@@ -5,69 +5,115 @@ import {
   MessageSquare,
   AlertCircle,
   Rocket,
+  User,
+  X,
+  Loader2,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import useNotifications from '../../hooks/useNotifications';
 import { formatTime } from '../../utils/formatTime';
 
-// A modern notification management tray that provides a bird's eye view of mission-critical team updates.
+/**
+ * NotificationTray - Operational alerts panel providing real-time workspace updates.
+ * Mobile-first, fully accessible, theme-consistent, and viewport-safe.
+ */
 const NotificationTray = () => {
   const [isOpen, setIsOpen] = useState(false);
   const trayRef = useRef(null);
+  const triggerRef = useRef(null);
   const navigate = useNavigate();
+
   const {
-    notifications,
-    unreadCount,
+    notifications = [],
+    loading = false,
+    isError = false,
+    refetch,
+    unreadCount = 0,
     markAsRead,
     markAllAsRead,
     clearAll,
     refresh,
   } = useNotifications();
 
-  // Handle closing when clicking outside the component.
+  // Handle closing when clicking or tapping outside the tray component
   useEffect(() => {
+    if (!isOpen) return;
+
     const handleClickOutside = (event) => {
-      if (trayRef.current && !trayRef.current.contains(event.target))
+      if (trayRef.current && !trayRef.current.contains(event.target)) {
         setIsOpen(false);
+      }
     };
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setIsOpen(false);
+        triggerRef.current?.focus();
+      }
+    };
+
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    document.addEventListener('touchstart', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen]);
 
   const handleNotificationClick = async (notif) => {
-    if (!notif.isRead) await markAsRead(notif._id);
+    if (!notif.isRead && markAsRead) {
+      await markAsRead(notif._id);
+    }
     if (notif.link) {
       navigate(notif.link);
       setIsOpen(false);
+      triggerRef.current?.focus();
     }
   };
 
   const getIcon = (type) => {
     switch (type) {
       case 'TASK_ASSIGNED':
-        return <span className="text-sm">👤</span>;
+        return <User size={14} className="text-primary" />;
       case 'TASK_UPDATED':
         return <Rocket size={14} className="text-secondary" />;
       case 'COMMENT_ADDED':
         return <MessageSquare size={14} className="text-status-warning" />;
       default:
-        return <AlertCircle size={14} className="text-text-muted" />;
+        return <AlertCircle size={14} className="text-text-subtle" />;
     }
+  };
+
+  const handleClose = () => {
+    setIsOpen(false);
+    triggerRef.current?.focus();
   };
 
   return (
     <div className="relative h-full flex items-center" ref={trayRef}>
       {/* Trigger Button with Dynamic unread badge counts */}
       <button
+        ref={triggerRef}
+        type="button"
+        aria-label={`Operational alerts${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
+        aria-expanded={isOpen}
+        aria-haspopup="dialog"
         onClick={() => {
           setIsOpen(!isOpen);
-          if (!isOpen) refresh();
+          if (!isOpen && refresh) refresh();
         }}
-        className="relative p-2 rounded-none text-white/40 hover:text-white hover:bg-white/5 transition-colors group"
+        className="relative min-w-[44px] min-h-[44px] sm:min-w-[36px] sm:min-h-[36px] p-2 rounded-lg text-text-subtle hover:text-text hover:bg-background-elevated transition-colors flex items-center justify-center cursor-pointer"
       >
-        <Bell size={18} className={unreadCount > 0 ? 'animate-pulse' : ''} />
+        <Bell
+          size={18}
+          className={unreadCount > 0 ? 'animate-pulse text-primary' : ''}
+          aria-hidden="true"
+        />
         {unreadCount > 0 && (
-          <span className="absolute top-1 right-1 w-3.5 h-3.5 bg-primary text-black text-[8px] font-black rounded-none flex items-center justify-center border border-black z-10">
+          <span className="absolute top-1 right-1 min-w-[16px] h-4 px-1 bg-primary text-background-dark text-[10px] font-bold rounded-full flex items-center justify-center border border-background shadow-xs z-10 pointer-events-none">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
@@ -76,76 +122,118 @@ const NotificationTray = () => {
       {/* Expanded Notifications Panel */}
       {isOpen && (
         <div
-          className="absolute top-[calc(100%+4px)] right-0 w-80 sm:w-85 bg-black border border-white/15 rounded-none overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200 z-50"
-          style={{
-            backgroundColor: 'var(--color-background-dark)',
-            borderColor: 'var(--color-border-subtle)',
-          }}
+          role="dialog"
+          aria-label="Operational alerts"
+          className="fixed top-15 left-3 right-3 max-w-sm mx-auto sm:max-w-none sm:mx-0 sm:absolute sm:top-[calc(100%+8px)] sm:left-auto sm:right-0 sm:w-96 bg-card border border-border-subtle rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200 z-50 flex flex-col max-h-[calc(100vh-5rem)] sm:max-h-[500px]"
         >
-          <div
-            className="p-3 border-b border-white/10 flex items-center justify-between bg-white/5"
-            style={{ borderColor: 'var(--color-border-subtle)' }}
-          >
-            <div className="flex items-center gap-2">
-              <span className="text-[9px] font-black text-white/40 uppercase tracking-[0.2em]">
-                Operational_Alerts
+          {/* Header */}
+          <div className="p-3 sm:p-3.5 border-b border-border-subtle flex items-center justify-between bg-background-elevated/40 gap-2 shrink-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-xs font-semibold text-text truncate">
+                Operational alerts
               </span>
               {unreadCount > 0 && (
-                <div className="w-1.5 h-1.5 rounded-none bg-primary" />
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary border border-primary/20 shrink-0">
+                  {unreadCount} new
+                </span>
               )}
             </div>
-            <div className="flex items-center gap-3">
+
+            <div className="flex items-center gap-2 shrink-0">
               {unreadCount > 0 && (
                 <button
+                  type="button"
                   onClick={markAllAsRead}
-                  className="text-[9px] font-black text-primary hover:brightness-125 transition-colors uppercase tracking-widest flex items-center gap-1.5"
+                  className="text-xs font-medium text-primary hover:text-primary-dark transition-colors flex items-center gap-1 cursor-pointer"
+                  title="Mark all notifications as read"
                 >
-                  Mark_Read
-                  <CheckCircle2 size={10} />
+                  <CheckCircle2 size={12} />
+                  <span className="hidden xs:inline">Mark all read</span>
                 </button>
               )}
               {notifications.length > 0 && (
                 <button
+                  type="button"
                   onClick={clearAll}
-                  className="text-[9px] font-black text-white/20 hover:text-status-error transition-colors uppercase tracking-widest"
+                  className="text-xs font-medium text-text-subtler hover:text-status-error transition-colors cursor-pointer"
+                  title="Clear all alerts"
                 >
-                  Clear
+                  Clear all
                 </button>
               )}
+              <button
+                type="button"
+                onClick={handleClose}
+                className="p-1 text-text-subtle hover:text-text hover:bg-background-elevated rounded-md transition-colors cursor-pointer ml-1"
+                aria-label="Close operational alerts"
+              >
+                <X size={15} />
+              </button>
             </div>
           </div>
 
-          <div className="max-h-[380px] overflow-y-auto no-scrollbar scroll-smooth">
-            {notifications.length > 0 ? (
+          {/* Alert Content List / States */}
+          <div className="flex-1 overflow-y-auto divide-y divide-border-subtle/50 no-scrollbar">
+            {loading ? (
+              <div className="p-8 text-center flex flex-col items-center justify-center gap-2">
+                <Loader2 size={20} className="animate-spin text-primary" />
+                <p className="text-xs text-text-subtle font-medium">Loading alerts...</p>
+              </div>
+            ) : isError ? (
+              <div className="p-8 text-center flex flex-col items-center justify-center gap-2">
+                <AlertCircle size={22} className="text-status-error" />
+                <p className="text-xs font-semibold text-text">Unable to load alerts</p>
+                <p className="text-[11px] text-text-subtle">
+                  Could not retrieve recent workspace notifications.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => (refetch ? refetch() : refresh && refresh())}
+                  className="mt-2 px-3 py-1 bg-background-elevated border border-border-subtle hover:border-border rounded-md text-xs font-medium text-text transition-colors cursor-pointer"
+                >
+                  Retry
+                </button>
+              </div>
+            ) : notifications.length > 0 ? (
               notifications.map((notif) => (
                 <div
                   key={notif._id}
                   onClick={() => handleNotificationClick(notif)}
-                  className={`p-4 flex gap-3 cursor-pointer transition-colors border-b border-white/5 last:border-0 relative group hover:bg-white/[0.04] ${!notif.isRead ? 'bg-primary/5' : 'opacity-40'}`}
+                  className={`p-3 sm:p-3.5 flex gap-3 cursor-pointer transition-colors relative group hover:bg-background-elevated/60 ${
+                    !notif.isRead ? 'bg-primary/5' : 'opacity-70'
+                  }`}
                 >
                   {!notif.isRead && (
-                    <div className="absolute left-0 top-3 bottom-3 w-[2px] bg-primary rounded-none" />
+                    <div className="absolute left-0 top-2 bottom-2 w-0.5 bg-primary rounded-r" />
                   )}
 
                   <div
-                    className={`shrink-0 w-8 h-8 rounded-none flex items-center justify-center transition-colors ${!notif.isRead ? 'bg-primary/20 border border-primary/40 text-primary' : 'bg-white/5 border border-white/10 text-white/20'}`}
+                    className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                      !notif.isRead
+                        ? 'bg-primary/10 border border-primary/20 text-primary'
+                        : 'bg-background-elevated border border-border-subtle text-text-subtler'
+                    }`}
                   >
                     {getIcon(notif.type)}
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-0.5">
+                    <div className="flex items-center justify-between gap-2 mb-1">
                       <h4
-                        className={`text-[10px] font-black tracking-widest uppercase truncate ${!notif.isRead ? 'text-white' : 'text-white/40'}`}
+                        className={`text-xs font-semibold truncate ${
+                          !notif.isRead ? 'text-text' : 'text-text-subtle'
+                        }`}
                       >
                         {notif.title}
                       </h4>
-                      <span className="text-[8px] font-black text-white/20 whitespace-nowrap ml-3 uppercase tracking-[0.2em]">
+                      <span className="text-[10px] text-text-subtler whitespace-nowrap shrink-0">
                         {formatTime(notif.createdAt)}
                       </span>
                     </div>
                     <p
-                      className={`text-[9px] leading-tight line-clamp-2 uppercase font-black tracking-widest ${!notif.isRead ? 'text-white/60' : 'text-white/20'}`}
+                      className={`text-xs leading-relaxed line-clamp-2 ${
+                        !notif.isRead ? 'text-text-subtle' : 'text-text-subtler'
+                      }`}
                     >
                       {notif.message}
                     </p>
@@ -153,31 +241,26 @@ const NotificationTray = () => {
                 </div>
               ))
             ) : (
-              <div className="p-12 text-center flex flex-col items-center justify-center gap-4 opacity-10">
-                <div className="w-10 h-10 bg-white/5 rounded-none flex items-center justify-center text-white border border-white/10">
-                  <Rocket size={18} />
+              <div className="p-8 text-center flex flex-col items-center justify-center gap-2">
+                <div className="w-9 h-9 bg-background-elevated rounded-full flex items-center justify-center text-text-subtle border border-border-subtle mb-1">
+                  <CheckCircle2 size={18} className="text-status-success" />
                 </div>
-                <div className="flex flex-col gap-1">
-                  <p className="text-[10px] font-black uppercase tracking-[0.3em]">
-                    ALL_CLEAR
-                  </p>
-                  <p className="text-[8px] font-black uppercase tracking-[0.2em]">
-                    MISSION_LOG_SYNCHRONIZED
-                  </p>
-                </div>
+                <p className="text-xs font-semibold text-text">No active alerts</p>
+                <p className="text-[11px] text-text-subtle">
+                  New workspace alerts will appear here.
+                </p>
               </div>
             )}
           </div>
 
-          <div
-            className="p-3 bg-white/5 border-t border-white/10 text-center"
-            style={{ borderColor: 'var(--color-border-subtle)' }}
-          >
+          {/* Footer */}
+          <div className="p-2 sm:p-2.5 bg-background-elevated/40 border-t border-border-subtle text-center shrink-0">
             <button
-              onClick={() => setIsOpen(false)}
-              className="text-[9px] font-black text-white/20 hover:text-white/60 transition-colors uppercase tracking-[0.3em]"
+              type="button"
+              onClick={handleClose}
+              className="w-full py-1.5 text-xs font-medium text-text-subtle hover:text-text hover:bg-background-elevated rounded-lg transition-colors cursor-pointer"
             >
-              Close Monitoring Panel
+              Close
             </button>
           </div>
         </div>

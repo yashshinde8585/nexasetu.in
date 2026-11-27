@@ -2,7 +2,6 @@ import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Plus,
-  GitBranch,
   Sparkles,
   Search,
   LayoutGrid,
@@ -77,9 +76,9 @@ const ProjectDetail = () => {
   }, []);
 
   const DATE_OPTIONS = [
-    { value: 'all', label: 'ALL TIME' },
-    { value: 'week', label: 'THIS WEEK' },
-    { value: 'month', label: 'THIS MONTH' },
+    { value: 'all', label: 'All time' },
+    { value: 'week', label: 'This week' },
+    { value: 'month', label: 'This month' },
   ];
 
   const getDateStart = (filter) => {
@@ -163,7 +162,11 @@ const ProjectDetail = () => {
     });
   }, [filteredGroupedTasks]);
 
-  // Tactical Pagination Logic
+  const totalTasksCount = React.useMemo(() => {
+    return Object.values(groupedTasks).flat().length;
+  }, [groupedTasks]);
+
+  // Pagination Logic
   const [currentPage, setCurrentPage] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(10);
 
@@ -204,22 +207,22 @@ const ProjectDetail = () => {
   const columns = [
     {
       id: TASK_STATUS.TODO,
-      title: isTicketView ? 'OPEN TICKETS' : 'TO-DO',
+      title: isTicketView ? 'Open Tickets' : 'To Do',
       color: 'border-status-error text-status-error',
     },
     {
       id: TASK_STATUS.IN_PROGRESS,
-      title: 'IN PROGRESS',
+      title: 'In Progress',
       color: 'border-status-warning text-status-warning',
     },
     {
       id: TASK_STATUS.IN_REVIEW,
-      title: 'IN REVIEW',
+      title: 'In Review',
       color: 'border-secondary text-secondary',
     },
     {
       id: TASK_STATUS.DONE,
-      title: isTicketView ? 'RESOLVED' : 'DONE',
+      title: isTicketView ? 'Resolved' : 'Done',
       color: 'border-status-success text-status-success',
     },
   ];
@@ -234,27 +237,29 @@ const ProjectDetail = () => {
     >
       <div className="min-h-screen bg-background text-text px-3 sm:px-4 lg:px-6 py-4">
         <div className="w-full space-y-6 max-w-7xl mx-auto">
-          {/* --- DIRECTIVE ENFORCEMENT HUD --- */}
+          {/* --- Project Restrictions Banner --- */}
           {activeStabilize && (
-            <div className="bg-status-error/10 border-2 border-status-error/50 rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 animate-pulse">
-              <div className="flex items-center gap-4">
-                <div className="bg-status-error p-3 rounded-full shadow-[0_0_20px_rgba(239,68,68,0.5)]">
-                  <ShieldAlert className="text-text" size={24} />
+            <div className="bg-status-error/10 border border-status-error/30 rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-lg bg-status-error/15 text-status-error shrink-0">
+                  <ShieldAlert size={20} />
                 </div>
                 <div>
-                  <h2 className="text-[12px] font-black text-status-error uppercase tracking-[0.3em]">
-                    PROJECT SYSTEM LOCK ENABLED
-                  </h2>
-                  <p className="text-[10px] font-bold text-text/70 uppercase tracking-widest">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-status-error">
+                      Project restrictions
+                    </span>
+                    <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-status-error/15 text-status-error">
+                      Project locked
+                    </span>
+                  </div>
+                  <p className="text-xs text-text-subtle mt-0.5">
                     {activeStabilize.title}
                   </p>
                 </div>
               </div>
-              <div className="bg-status-error/20 px-4 py-2 rounded-xl border border-status-error/30">
-                <span className="text-[9px] font-black text-status-error uppercase tracking-widest">
-                  PROJECT SYSTEM LOCKED: NEW TASKS DISABLED • ONLY REVIEWS
-                  ALLOWED
-                </span>
+              <div className="bg-card border border-status-error/30 px-3 py-1.5 rounded-lg text-xs font-medium text-status-error">
+                New tasks disabled • Only reviews allowed
               </div>
             </div>
           )}
@@ -262,66 +267,89 @@ const ProjectDetail = () => {
           {/* Header */}
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6 pb-6 border-b border-border-subtle">
             <div className="space-y-4 flex-1 w-full">
-              <div className="flex flex-wrap items-center gap-3"></div>
+              {/* Project Title & Context */}
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="text-xl sm:text-2xl font-bold text-text tracking-tight">
+                  {project?.name || (isTicketView ? 'Project Tickets' : 'Project Workspace')}
+                </h1>
+                {project?.key && (
+                  <span className="px-2 py-0.5 text-xs font-mono font-semibold rounded bg-primary/10 border border-primary/20 text-primary">
+                    {project.key}
+                  </span>
+                )}
+                {project?.category && (
+                  <span className="px-2 py-0.5 text-xs font-medium rounded bg-background-elevated border border-border-subtle text-text-subtle capitalize">
+                    {project.category}
+                  </span>
+                )}
+              </div>
 
-              {/* Project Name Removed */}
+              {project?.description && (
+                <p className="text-xs sm:text-sm text-text-subtle max-w-2xl line-clamp-2">
+                  {project.description}
+                </p>
+              )}
 
               <div className="flex flex-wrap items-center gap-4 pt-1">
                 <div
                   className="flex flex-col gap-1.5 relative"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <span className="text-[9px] font-black text-text-subtle uppercase tracking-[0.2em]">
-                    ACTIVE SPRINT
+                  <span className="text-xs font-medium text-text-subtle">
+                    Active Sprint
                   </span>
                   <button
+                    type="button"
+                    aria-label="Active sprint selector"
                     disabled={isProjectLocked}
                     onClick={() =>
                       setActiveDropdown(
                         activeDropdown === 'sprint' ? null : 'sprint'
                       )
                     }
-                    className={`flex items-center gap-2 bg-background-elevated border border-border-subtle px-2.5 py-1.5 rounded hover:bg-background-elevated transition-all group ${isProjectLocked ? 'opacity-20 cursor-not-allowed' : ''}`}
+                    className={`flex items-center gap-2 bg-card border border-border-subtle px-3 py-1.5 rounded-lg hover:bg-background-elevated text-text transition-colors group ${isProjectLocked ? 'opacity-40 cursor-not-allowed' : ''}`}
                   >
-                    <Calendar size={12} className="text-primary-light" />
-                    <span className="text-[11px] font-black text-text uppercase tracking-tight">
+                    <Calendar size={14} className="text-primary" />
+                    <span className="text-xs font-medium text-text">
                       {sprints?.find((s) => s._id === project?.sprint)?.name ||
-                        'NO SPRINT'}
+                        'No sprint'}
                     </span>
                     {!isProjectLocked && (
                       <ChevronDown
-                        size={12}
+                        size={14}
                         className={`text-text-subtle transition-transform ${activeDropdown === 'sprint' ? 'rotate-180' : ''}`}
                       />
                     )}
                   </button>
 
                   {activeDropdown === 'sprint' && !isProjectLocked && (
-                    <div className="absolute top-full left-0 mt-2 w-64 bg-background-elevated border-2 border-border-subtle rounded-2xl shadow-xl z-[70] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                      <div className="p-2 max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10">
+                    <div className="absolute top-full left-0 mt-2 w-64 bg-card border border-border-subtle rounded-xl shadow-xl z-[70] overflow-hidden">
+                      <div className="p-1.5 max-h-[260px] overflow-y-auto space-y-1">
                         <button
+                          type="button"
                           onClick={() => {
                             updateProjectMutation.mutate({ sprint: null });
                             setActiveDropdown(null);
                           }}
-                          className={`w-full text-left px-4 py-3 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all ${
+                          className={`w-full text-left px-3 py-2 text-xs font-medium rounded-lg transition-colors ${
                             !project?.sprint
-                              ? 'bg-white text-background-dark'
+                              ? 'bg-primary text-background-dark font-semibold'
                               : 'text-text-subtle hover:bg-background-elevated hover:text-text'
                           }`}
                         >
-                          NO SPRINT SELECTED
+                          No sprint selected
                         </button>
                         {(sprints || []).map((s) => (
                           <button
                             key={s._id}
+                            type="button"
                             onClick={() => {
                               updateProjectMutation.mutate({ sprint: s._id });
                               setActiveDropdown(null);
                             }}
-                            className={`w-full text-left px-4 py-3 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all ${
+                            className={`w-full text-left px-3 py-2 text-xs font-medium rounded-lg transition-colors ${
                               project?.sprint === s._id
-                                ? 'bg-white text-background-dark'
+                                ? 'bg-primary text-background-dark font-semibold'
                                 : 'text-text-subtle hover:bg-background-elevated hover:text-text'
                             }`}
                           >
@@ -336,48 +364,50 @@ const ProjectDetail = () => {
             </div>
 
             <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
-              {!isTicketView && isManager && (
-                <button
-                  onClick={() => ui.setShowGithubPanel(!ui.showGithubPanel)}
-                  className={`h-9 px-3.5 rounded-md border font-semibold uppercase tracking-wider text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                    ui.showGithubPanel
-                      ? 'bg-card text-text border-primary'
-                      : 'bg-background-elevated text-text-subtle border-border-subtle hover:text-text hover:bg-card'
-                  }`}
-                >
-                  {ui.showGithubPanel ? (
-                    <CloseIcon size={14} />
-                  ) : (
-                    <GitBranch size={14} />
-                  )}
-                  {ui.showGithubPanel ? 'Close' : 'Repository'}
-                </button>
-              )}
-
               <button
+                type="button"
+                aria-label={ui.showAiInput ? 'Close task generator' : isTicketView ? 'Generate tickets with AI' : 'Generate tasks with AI'}
+                title={
+                  isProjectLocked
+                    ? 'Task generation is disabled while project is locked'
+                    : ui.showAiInput
+                      ? 'Close task generator'
+                      : 'Generate tasks from text with AI'
+                }
                 disabled={isProjectLocked}
                 onClick={() => ui.setShowAiInput(!ui.showAiInput)}
-                className={`h-9 px-3.5 rounded-md border font-semibold uppercase tracking-wider text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${isProjectLocked ? 'opacity-20 cursor-not-allowed' : ''} ${
+                className={`flex-1 sm:flex-initial h-10 sm:h-9 px-3.5 rounded-lg border text-xs font-medium transition-colors flex items-center justify-center gap-2 cursor-pointer ${isProjectLocked ? 'opacity-40 cursor-not-allowed' : ''} ${
                   ui.showAiInput
-                    ? 'bg-status-error text-white border-status-error'
-                    : 'bg-primary text-white border-primary hover:bg-primary/90'
+                    ? 'bg-primary/10 text-primary border-primary/40'
+                    : 'bg-card text-text border-border-subtle hover:bg-background-elevated'
                 }`}
               >
                 {ui.showAiInput ? (
                   <CloseIcon size={14} />
                 ) : (
-                  <Sparkles size={14} />
+                  <Sparkles size={14} className="text-secondary" />
                 )}
-                {ui.showAiInput ? 'Close' : isTicketView ? 'Generate Tickets' : 'Generate Tasks'}
+                <span>{ui.showAiInput ? 'Close AI' : isTicketView ? 'Generate tickets' : 'Generate tasks'}</span>
               </button>
 
               <button
+                type="button"
+                aria-label={ui.showTaskForm ? 'Close new task form' : isTicketView ? 'Create new ticket' : 'Create new task'}
+                title={
+                  isProjectLocked
+                    ? 'Task creation is disabled while project is locked'
+                    : ui.showTaskForm
+                      ? 'Close new task form'
+                      : isTicketView
+                        ? 'Create a new ticket'
+                        : 'Create a new task'
+                }
                 disabled={isProjectLocked}
                 onClick={() => ui.setShowTaskForm(!ui.showTaskForm)}
-                className={`h-9 px-3.5 rounded-md border font-semibold uppercase tracking-wider text-xs flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer ${isProjectLocked ? 'opacity-20 cursor-not-allowed' : ''} ${
+                className={`w-full sm:w-auto h-10 sm:h-9 px-4 rounded-lg border font-medium text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-sm ${isProjectLocked ? 'opacity-40 cursor-not-allowed' : ''} ${
                   ui.showTaskForm
-                    ? 'bg-status-error text-white border-status-error'
-                    : 'bg-primary text-white border-primary hover:bg-primary/90'
+                    ? 'bg-status-error/10 text-status-error border-status-error/40 hover:bg-status-error/20'
+                    : 'bg-primary text-background-dark border-primary hover:bg-primary/90 font-semibold'
                 }`}
               >
                 {ui.showTaskForm ? (
@@ -385,11 +415,13 @@ const ProjectDetail = () => {
                 ) : (
                   <Plus size={14} strokeWidth={2.5} />
                 )}
-                {ui.showTaskForm
-                  ? 'Close'
-                  : isTicketView
-                    ? 'New Ticket'
-                    : 'New Task'}
+                <span>
+                  {ui.showTaskForm
+                    ? 'Close'
+                    : isTicketView
+                      ? 'New ticket'
+                      : 'New task'}
+                </span>
               </button>
             </div>
           </div>
@@ -436,6 +468,8 @@ const ProjectDetail = () => {
                     handleCreateTask={(task) => createTaskMutation.mutate(task)}
                     project={project}
                     sprints={sprints}
+                    onCancel={() => ui.setShowAiInput(false)}
+                    isCreatingTask={createTaskMutation.isPending}
                   />
                 </div>
               )}
@@ -447,73 +481,105 @@ const ProjectDetail = () => {
                     newTask={newTask}
                     setNewTask={setNewTask}
                     handleCreateTask={(task) => createTaskMutation.mutate(task)}
+                    onCancel={() => ui.setShowTaskForm(false)}
+                    isLoading={createTaskMutation.isPending}
                   />
                 </div>
               )}
             </div>
           )}
 
-          {/* Unified Work Console */}
-          <div className="space-y-2">
-            {/* Tactical Search & Filter Bar */}
-            <div className="bg-background-elevated border border-border-subtle rounded-xl flex flex-row items-center p-1 gap-1 shadow-2xl">
-              {/* Primary Search Container - Flexible */}
-              <div className="flex-1 flex items-center h-10 bg-background-elevated rounded-lg px-3 border border-border-subtler focus-within:border-primary/50 transition-all group min-w-0">
+          {/* Workspace Task Management */}
+          <div className="space-y-4">
+            {/* Search and Filters Toolbar */}
+            <div className="bg-card border border-border-subtle rounded-xl p-3 sm:p-2.5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3 shadow-sm">
+              {/* Primary Search Input */}
+              <div className="relative flex-1 min-w-0 group">
                 <Search
-                  size={14}
-                  className="text-text-subtle group-focus-within:text-primary shrink-0 transition-colors"
+                  size={15}
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-subtle group-focus-within:text-primary transition-colors pointer-events-none"
                 />
                 <input
                   type="text"
-                  placeholder="SEARCH TASKS..."
-                  className="flex-1 bg-transparent px-2 text-[10px] font-black text-text placeholder:text-text-subtler focus:outline-none tracking-widest truncate uppercase"
+                  placeholder="Search tasks..."
+                  className="w-full h-10 sm:h-9 bg-background-elevated border border-border-subtle rounded-lg pl-10 pr-9 text-xs sm:text-sm text-text placeholder:text-text-subtle focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
+                  aria-label="Search tasks"
                 />
                 {searchTerm && (
                   <button
+                    type="button"
                     onClick={() => setSearchTerm('')}
-                    className="text-text-subtler hover:text-text transition-colors p-1 hidden sm:block"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-text-subtle hover:text-text hover:bg-card rounded-md transition-colors cursor-pointer"
+                    aria-label="Clear search"
                   >
                     <CloseIcon size={14} />
                   </button>
                 )}
               </div>
 
-              {/* Secondary Controls - Custom Icon Bar */}
-              <div className="flex items-center gap-1">
-                {/* Operator Select */}
+              {/* Secondary Controls Toolbar */}
+              <div className="flex items-center flex-wrap gap-2">
+                {/* Filter Task Count Indicator */}
+                <div className="hidden lg:flex items-center text-xs text-text-subtle whitespace-nowrap px-1">
+                  {hasActiveFilters ? (
+                    <span>
+                      Showing <strong className="text-text font-semibold">{totalTasks}</strong> of {totalTasksCount}
+                    </span>
+                  ) : (
+                    <span>
+                      <strong className="text-text font-semibold">{totalTasks}</strong> {totalTasks === 1 ? 'task' : 'tasks'}
+                    </span>
+                  )}
+                </div>
+
+                {/* Select Assignee */}
                 <div className="relative" onClick={(e) => e.stopPropagation()}>
                   <button
+                    type="button"
+                    aria-label="Select assignee"
                     onClick={() =>
                       setActiveDropdown(
                         activeDropdown === 'operator' ? null : 'operator'
                       )
                     }
-                    className={`w-10 h-10 rounded-lg flex items-center justify-center border transition-all ${
-                      activeDropdown === 'operator'
-                        ? 'bg-white text-background-dark border-white'
-                        : 'bg-background-elevated text-text-subtle border-border-subtle hover:border-border-subtle'
+                    className={`h-10 sm:h-9 px-3 rounded-lg flex items-center gap-2 border text-xs font-medium transition-colors ${
+                      assigneeFilter !== 'all' || activeDropdown === 'operator'
+                        ? 'bg-primary/10 text-primary border-primary/40'
+                        : 'bg-background-elevated text-text-subtle border-border-subtle hover:text-text hover:bg-card'
                     }`}
                   >
                     <Users size={14} />
+                    <span className="hidden sm:inline">
+                      {assigneeFilter === 'all'
+                        ? 'All members'
+                        : assigneeFilter === user?._id
+                          ? 'Assigned to me'
+                          : 'Assignee'}
+                    </span>
+                    <ChevronDown
+                      size={12}
+                      className={`text-text-subtle transition-transform ${activeDropdown === 'operator' ? 'rotate-180' : ''}`}
+                    />
                   </button>
                   {activeDropdown === 'operator' && (
-                    <div className="absolute top-full mt-2 right-0 w-48 bg-background-elevated border-2 border-border-subtle rounded-xl shadow-2xl z-[60] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                    <div className="absolute top-full mt-2 right-0 w-48 max-w-[calc(100vw-32px)] bg-card border border-border-subtle rounded-xl shadow-xl z-[60] overflow-hidden">
                       <div className="p-1.5 space-y-1">
                         {[
-                          { id: 'all', label: 'ALL MEMBERS' },
-                          { id: user?._id, label: 'SELF ONLY' },
+                          { id: 'all', label: 'All members' },
+                          { id: user?._id, label: 'Assigned to me' },
                         ].map((opt) => (
                           <button
                             key={opt.id}
+                            type="button"
                             onClick={() => {
                               setAssigneeFilter(opt.id);
                               setActiveDropdown(null);
                             }}
-                            className={`w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-[0.2em] rounded-lg transition-all ${
+                            className={`w-full text-left px-3 py-2 text-xs font-medium rounded-lg transition-colors ${
                               assigneeFilter === opt.id
-                                ? 'bg-white text-background-dark'
+                                ? 'bg-primary text-background-dark font-semibold'
                                 : 'text-text-subtle hover:bg-background-elevated hover:text-text'
                             }`}
                           >
@@ -525,35 +591,46 @@ const ProjectDetail = () => {
                   )}
                 </div>
 
-                {/* Temporal Dropdown */}
+                {/* Date Filter */}
                 <div className="relative" onClick={(e) => e.stopPropagation()}>
                   <button
+                    type="button"
+                    aria-label="Date filter"
                     onClick={() =>
                       setActiveDropdown(
                         activeDropdown === 'date' ? null : 'date'
                       )
                     }
-                    className={`w-10 h-10 rounded-lg flex items-center justify-center border transition-all ${
-                      activeDropdown === 'date'
-                        ? 'bg-white text-background-dark border-white'
-                        : 'bg-background-elevated text-text-subtle border-border-subtle hover:border-border-subtle'
+                    className={`h-10 sm:h-9 px-3 rounded-lg flex items-center gap-2 border text-xs font-medium transition-colors ${
+                      dateFilter !== 'all' || activeDropdown === 'date'
+                        ? 'bg-primary/10 text-primary border-primary/40'
+                        : 'bg-background-elevated text-text-subtle border-border-subtle hover:text-text hover:bg-card'
                     }`}
                   >
                     <Calendar size={14} />
+                    <span className="hidden sm:inline">
+                      {DATE_OPTIONS.find((d) => d.value === dateFilter)?.label ||
+                        'All time'}
+                    </span>
+                    <ChevronDown
+                      size={12}
+                      className={`text-text-subtle transition-transform ${activeDropdown === 'date' ? 'rotate-180' : ''}`}
+                    />
                   </button>
                   {activeDropdown === 'date' && (
-                    <div className="absolute top-full mt-2 right-0 w-48 bg-background-elevated border-2 border-border-subtle rounded-xl shadow-2xl z-[60] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                    <div className="absolute top-full mt-2 right-0 w-44 max-w-[calc(100vw-32px)] bg-card border border-border-subtle rounded-xl shadow-xl z-[60] overflow-hidden">
                       <div className="p-1.5 space-y-1">
                         {DATE_OPTIONS.map((opt) => (
                           <button
                             key={opt.value}
+                            type="button"
                             onClick={() => {
                               setDateFilter(opt.value);
                               setActiveDropdown(null);
                             }}
-                            className={`w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-[0.2em] rounded-lg transition-all ${
+                            className={`w-full text-left px-3 py-2 text-xs font-medium rounded-lg transition-colors ${
                               dateFilter === opt.value
-                                ? 'bg-white text-background-dark'
+                                ? 'bg-primary text-background-dark font-semibold'
                                 : 'text-text-subtle hover:bg-background-elevated hover:text-text'
                             }`}
                           >
@@ -565,70 +642,49 @@ const ProjectDetail = () => {
                   )}
                 </div>
 
-                {/* Layout Toggle */}
-                <div className="relative" onClick={(e) => e.stopPropagation()}>
+                {/* View Switcher: Board vs List */}
+                <div className="flex items-center h-10 sm:h-9 bg-background-elevated border border-border-subtle rounded-lg p-0.5">
                   <button
-                    onClick={() =>
-                      setActiveDropdown(
-                        activeDropdown === 'layout' ? null : 'layout'
-                      )
-                    }
-                    className={`w-10 h-10 rounded-lg flex items-center justify-center border transition-all ${
-                      activeDropdown === 'layout'
-                        ? 'bg-white text-background-dark border-white'
-                        : 'bg-background-elevated text-text-subtle border-border-subtle hover:border-border-subtle'
+                    type="button"
+                    title="Board view"
+                    aria-label="Board view"
+                    onClick={() => setCardLayout('standard')}
+                    className={`h-full flex items-center gap-1.5 px-2.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+                      cardLayout !== 'list'
+                        ? 'bg-card text-text border border-border-subtle shadow-sm font-semibold'
+                        : 'text-text-subtle hover:text-text'
                     }`}
                   >
-                    {cardLayout === 'list' ? (
-                      <List size={14} />
-                    ) : (
-                      <LayoutGrid size={14} />
-                    )}
+                    <LayoutGrid size={14} />
+                    <span className="hidden md:inline">Board</span>
                   </button>
-                  {activeDropdown === 'layout' && (
-                    <div className="absolute top-full mt-2 right-0 w-48 bg-background-elevated border-2 border-border-subtle rounded-xl shadow-2xl z-[60] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                      <div className="p-1.5 space-y-1">
-                        {[
-                          {
-                            id: 'standard',
-                            label: 'BOARD VIEW',
-                            icon: <LayoutGrid size={12} />,
-                          },
-                          {
-                            id: 'list',
-                            label: 'LIST VIEW',
-                            icon: <List size={12} />,
-                          },
-                        ].map((opt) => (
-                          <button
-                            key={opt.id}
-                            onClick={() => {
-                              setCardLayout(opt.id);
-                              setActiveDropdown(null);
-                            }}
-                            className={`w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-[0.2em] rounded-lg transition-all flex items-center gap-2.5 ${
-                              cardLayout === opt.id
-                                ? 'bg-white text-background-dark'
-                                : 'text-text-subtle hover:bg-background-elevated hover:text-text'
-                            }`}
-                          >
-                            {opt.icon}
-                            {opt.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                  <button
+                    type="button"
+                    title="List view"
+                    aria-label="List view"
+                    onClick={() => setCardLayout('list')}
+                    className={`h-full flex items-center gap-1.5 px-2.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+                      cardLayout === 'list'
+                        ? 'bg-card text-text border border-border-subtle shadow-sm font-semibold'
+                        : 'text-text-subtle hover:text-text'
+                    }`}
+                  >
+                    <List size={14} />
+                    <span className="hidden md:inline">List</span>
+                  </button>
                 </div>
 
-                {/* Clear All - Tactical Reset */}
+                {/* Reset Filters */}
                 {hasActiveFilters && (
                   <button
+                    type="button"
                     onClick={clearAllFilters}
-                    className="h-10 w-10 flex items-center justify-center bg-status-error/10 border border-status-error/30 text-status-error rounded-lg hover:bg-status-error hover:text-text transition-all active:scale-95"
-                    title="RESET FILTERS"
+                    className="h-10 sm:h-9 px-2.5 flex items-center gap-1.5 text-xs font-medium text-status-error bg-status-error/10 border border-status-error/30 rounded-lg hover:bg-status-error hover:text-white transition-colors cursor-pointer"
+                    title="Reset filters"
+                    aria-label="Reset filters"
                   >
-                    <CloseIcon size={16} />
+                    <CloseIcon size={14} />
+                    <span className="hidden sm:inline">Reset</span>
                   </button>
                 )}
               </div>
@@ -663,49 +719,50 @@ const ProjectDetail = () => {
                 />
               )}
 
-              {/* Tactical Pagination Interface */}
+              {/* Pagination Interface */}
               {totalTasks > 0 && (
-                <div className="flex items-center justify-between gap-2 bg-background-elevated border border-border-subtle rounded-xl p-1.5 mt-4 shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-2">
-                  {/* Left: Page Size Selector - Custom UI */}
+                <div className="flex items-center justify-between gap-3 bg-card border border-border-subtle rounded-xl px-3 py-2 mt-4 shadow-sm">
+                  {/* Left: Page Size Selector */}
                   <div
                     className="relative"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <button
+                      type="button"
+                      aria-label="Tasks per page"
                       onClick={() =>
                         setActiveDropdown(
                           activeDropdown === 'pagesize' ? null : 'pagesize'
                         )
                       }
-                      className="flex items-center gap-2 bg-background-dark border border-border-subtle rounded-lg px-2.5 h-8 hover:border-primary/60 transition-all"
+                      className="flex items-center gap-2 bg-background-elevated border border-border-subtle rounded-lg px-2.5 h-8 hover:bg-card text-xs font-medium text-text transition-colors"
                     >
-                      <span className="text-[10px] font-black text-text tracking-tighter">
-                        {pageSize}
-                      </span>
+                      <span>{pageSize} per page</span>
                       <ChevronDown
-                        size={10}
+                        size={12}
                         className={`text-text-subtle transition-transform ${activeDropdown === 'pagesize' ? 'rotate-180' : ''}`}
                       />
                     </button>
 
                     {activeDropdown === 'pagesize' && (
-                      <div className="absolute bottom-full left-0 mb-2 w-20 bg-background-elevated border-2 border-border-subtle rounded-xl shadow-2xl z-[70] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                      <div className="absolute bottom-full left-0 mb-2 w-32 bg-card border border-border-subtle rounded-xl shadow-xl z-[70] overflow-hidden">
                         <div className="p-1 space-y-1">
-                          {[10, 20, 30].map((size) => (
+                          {[10, 20, 50, 100].map((size) => (
                             <button
                               key={size}
+                              type="button"
                               onClick={() => {
                                 setPageSize(size);
                                 setCurrentPage(1);
                                 setActiveDropdown(null);
                               }}
-                              className={`w-full text-center py-1.5 text-[10px] font-black uppercase rounded-lg transition-all ${
+                              className={`w-full text-left px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
                                 pageSize === size
-                                  ? 'bg-white text-background-dark'
+                                  ? 'bg-primary text-background-dark font-semibold'
                                   : 'text-text-subtle hover:bg-background-elevated hover:text-text'
                               }`}
                             >
-                              {size}
+                              {size} per page
                             </button>
                           ))}
                         </div>
@@ -713,40 +770,36 @@ const ProjectDetail = () => {
                     )}
                   </div>
 
-                  {/* Right: Info & Controls Grouped */}
-                  <div className="flex items-center gap-1.5">
-                    <div className="hidden sm:flex h-8 bg-background-dark border border-border-subtle rounded-lg px-3 items-center gap-2 shadow-inner">
-                      <span className="text-[10px] font-black text-text">
-                        {currentPage}
-                      </span>
-                      <span className="text-[10px] font-black text-text-subtle">
-                        /
-                      </span>
-                      <span className="text-[10px] font-black text-text-muted">
-                        {totalPages}
-                      </span>
-                    </div>
+                  {/* Right: Info & Controls */}
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-text-subtle font-medium">
+                      Page {currentPage} of {totalPages}
+                    </span>
 
-                    <div className="flex items-center bg-background-dark border border-border-subtle rounded-lg overflow-hidden h-8">
+                    <div className="flex items-center bg-background-elevated border border-border-subtle rounded-lg overflow-hidden h-8">
                       <button
+                        type="button"
+                        aria-label="Previous page"
                         disabled={currentPage === 1}
                         onClick={() =>
                           setCurrentPage((prev) => Math.max(1, prev - 1))
                         }
-                        className="w-8 h-full flex items-center justify-center text-text-muted hover:bg-background-elevated hover:text-text transition-all disabled:opacity-10 disabled:cursor-not-allowed border-r border-border-subtle"
+                        className="w-8 h-full flex items-center justify-center text-text-subtle hover:bg-card hover:text-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed border-r border-border-subtle"
                       >
-                        <ChevronLeft size={14} strokeWidth={4} />
+                        <ChevronLeft size={14} />
                       </button>
                       <button
+                        type="button"
+                        aria-label="Next page"
                         disabled={currentPage === totalPages}
                         onClick={() =>
                           setCurrentPage((prev) =>
                             Math.min(totalPages, prev + 1)
                           )
                         }
-                        className="w-8 h-full flex items-center justify-center text-text-muted hover:bg-background-elevated hover:text-text transition-all disabled:opacity-10 disabled:cursor-not-allowed"
+                        className="w-8 h-full flex items-center justify-center text-text-subtle hover:bg-card hover:text-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                       >
-                        <ChevronRight size={14} strokeWidth={4} />
+                        <ChevronRight size={14} />
                       </button>
                     </div>
                   </div>
