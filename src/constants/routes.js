@@ -7,6 +7,7 @@ export const ROUTES = {
   TASK_DETAIL: (id) => `/task/${id}`,
   TEAMS: '/teams',
   SETTINGS: '/settings',
+  SPRINTS: '/sprint',
   COMMAND_CENTER: '/cto-dashboard',
   EXECUTION_COMMANDER: '/execution-commander',
   TEAM_COMMAND_CENTER: '/team-command-center',

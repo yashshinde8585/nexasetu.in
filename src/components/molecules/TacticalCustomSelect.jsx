@@ -22,8 +22,17 @@ const TacticalCustomSelect = ({
         setIsOpen(false);
       }
     };
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setIsOpen(false);
+      }
+    };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, []);
 
   const handleSelect = (optionValue) => {
@@ -58,7 +67,7 @@ const TacticalCustomSelect = ({
               : 'border-border-subtle hover:border-border'
           }`}
         >
-          <div className="text-xs sm:text-sm font-medium text-text uppercase tracking-wide truncate flex-1 text-left">
+          <div className="text-xs sm:text-sm font-medium text-text capitalize truncate flex-1 text-left">
             {currentOptionLabel}
           </div>
           <div className="flex items-center gap-3 ml-2">
@@ -114,9 +123,9 @@ const TacticalCustomSelect = ({
                         renderOption(opt, isSelected)
                       ) : (
                         <span
-                          className={`text-xs font-semibold uppercase tracking-wider ${
+                          className={`text-xs font-medium capitalize ${
                             isSelected
-                              ? 'text-primary'
+                              ? 'text-primary font-semibold'
                               : customColor ||
                                 'text-text-subtle group-hover/opt:text-text'
                           }`}

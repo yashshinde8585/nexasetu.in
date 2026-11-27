@@ -208,7 +208,7 @@ const SWEDashboard = () => {
 
       <div className="flex-1">
         {activeTab === 'Overview' && (
-          <ErrorBoundary>
+          <ErrorBoundary scope="component" resetKeys={[activeTab]}>
             <OverviewTab
               filteredInProgress={filteredInProgress}
               filteredInReview={filteredInReview}
@@ -221,7 +221,7 @@ const SWEDashboard = () => {
         )}
 
         {activeTab === 'My Work' && (
-          <ErrorBoundary>
+          <ErrorBoundary scope="component" resetKeys={[activeTab]}>
             <MyWorkTab
               filteredMyTasks={filteredMyTasks}
               handleUpdateStatus={handleUpdateStatus}
@@ -231,13 +231,13 @@ const SWEDashboard = () => {
         )}
 
         {activeTab === 'Code' && (
-          <ErrorBoundary>
+          <ErrorBoundary scope="component" resetKeys={[activeTab]}>
             <CodeTab myVelocity={myVelocity} myCodeImpact={myCodeImpact} />
           </ErrorBoundary>
         )}
 
         {activeTab === 'Pull Requests' && (
-          <ErrorBoundary>
+          <ErrorBoundary scope="component" resetKeys={[activeTab]}>
             <PRsTab
               pullRequestMetrics={prStats}
               pullRequestsList={pullRequestsList}
@@ -246,25 +246,25 @@ const SWEDashboard = () => {
         )}
 
         {activeTab === 'Quality' && (
-          <ErrorBoundary>
+          <ErrorBoundary scope="component" resetKeys={[activeTab]}>
             <QualityTab codeQuality={codeQuality} />
           </ErrorBoundary>
         )}
 
         {activeTab === 'Deployments' && (
-          <ErrorBoundary>
+          <ErrorBoundary scope="component" resetKeys={[activeTab]}>
             <DeploymentsTab deployments={deployments} />
           </ErrorBoundary>
         )}
 
         {activeTab === 'Learn' && (
-          <ErrorBoundary>
+          <ErrorBoundary scope="component" resetKeys={[activeTab]}>
             <LearnTab learnAndGrow={learnAndGrow} />
           </ErrorBoundary>
         )}
 
         {activeTab === 'Insights' && (
-          <ErrorBoundary>
+          <ErrorBoundary scope="component" resetKeys={[activeTab]}>
             <InsightsTab aiInsights={aiInsights} />
           </ErrorBoundary>
         )}

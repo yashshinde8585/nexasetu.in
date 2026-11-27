@@ -17,10 +17,12 @@ const BackButton = ({ onClick, className = '' }) => {
 
   return (
     <button
+      type="button"
       onClick={handleBack}
+      aria-label="Go back"
       className={`group flex items-center transition-colors outline-none cursor-pointer ${className}`}
     >
-      <div className="w-8 h-8 md:w-9 md:h-9 rounded-none bg-black border border-white/20 flex items-center justify-center text-white/40 group-hover:text-primary group-hover:border-primary transition-all">
+      <div className="w-9 h-9 min-w-[36px] min-h-[36px] rounded-lg bg-background-elevated border border-border-subtle flex items-center justify-center text-text-subtle group-hover:text-primary group-hover:border-primary/40 transition-all">
         <ArrowLeft size={16} />
       </div>
     </button>

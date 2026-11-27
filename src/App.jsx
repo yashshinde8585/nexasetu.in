@@ -153,7 +153,7 @@ const App = () => {
                 user ? (
                   <Navigate to={homeRedirect} replace />
                 ) : (
-                  <ErrorBoundary>
+                  <ErrorBoundary scope="page" resetKeys={[location.pathname]}>
                     <Component />
                   </ErrorBoundary>
                 )
@@ -181,7 +181,7 @@ const App = () => {
                     titles={titles}
                     fallback={fallback}
                   >
-                    <ErrorBoundary>
+                    <ErrorBoundary scope="page" resetKeys={[location.pathname]}>
                       <Component />
                     </ErrorBoundary>
                   </ProtectedRoute>
@@ -194,6 +194,18 @@ const App = () => {
           <Route
             path="/team"
             element={<Navigate to={ROUTES.TEAMS} replace />}
+          />
+          <Route
+            path="/project-info"
+            element={
+              <Navigate
+                to={{
+                  pathname: ROUTES.SPRINTS,
+                  search: location.search,
+                }}
+                replace
+              />
+            }
           />
           <Route
             path="*"

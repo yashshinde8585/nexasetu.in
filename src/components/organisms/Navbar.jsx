@@ -18,7 +18,13 @@ import { ROUTES } from '../../constants/routes';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import ProjectService from '../../api/projectApi';
 
-const Navbar = ({ onToggleSidebar }) => {
+const Navbar = ({
+  onToggleSidebar,
+  sidebarOpen,
+  profileOpen,
+  onToggleProfile,
+  onCloseProfile,
+}) => {
   const { user } = useAuth();
   const { hasPermission } = usePermissions();
   const queryClient = useQueryClient();
@@ -50,6 +56,7 @@ const Navbar = ({ onToggleSidebar }) => {
               className="p-2 -ml-2 text-white/60 hover:text-white md:hidden transition-colors"
               style={{ color: 'var(--color-text-subtle)' }}
               aria-label="Toggle Sidebar"
+              aria-expanded={Boolean(sidebarOpen)}
             >
               <Menu size={24} aria-hidden="true" />
             </button>
@@ -64,10 +71,10 @@ const Navbar = ({ onToggleSidebar }) => {
                 {(() => {
                   const breadcrumbMap = {
                     [ROUTES.DASHBOARD]: 'Home',
-                    [ROUTES.COMMAND_CENTER]: 'Executive',
+                    [ROUTES.COMMAND_CENTER]: 'Dashboard',
                     [ROUTES.EXECUTION_COMMANDER]: 'Operations',
                     [ROUTES.TEAM_COMMAND_CENTER]: 'Dashboard',
-                    [ROUTES.SYSTEM_HEALTH_CONTROL]: 'Status',
+                    [ROUTES.SYSTEM_HEALTH_CONTROL]: 'Dashboard',
                     [ROUTES.QUALITY_COMMAND]: 'Quality',
                     [ROUTES.HR]: 'Dashboard',
                     [ROUTES.QUALITY_STRATEGY]: 'Strategy',
@@ -80,9 +87,10 @@ const Navbar = ({ onToggleSidebar }) => {
                     [ROUTES.PERSONAL_WORK_CONSOLE]: 'Workbench',
                     [ROUTES.PORTFOLIO || '/portfolio']: 'Portfolio',
                     [ROUTES.TEAMS]: 'Teams',
-                    '/team/add': 'Invite',
+                    '/team/add': 'Invite Team Members',
+                    [ROUTES.SPRINTS]: 'Sprints',
                     '/project-info': 'Sprints',
-                    '/project-setup': 'New Project',
+                    '/project-setup': 'Create Project',
                     [ROUTES.MY_TASKS]: 'Tasks',
                     '/velocity': 'Velocity',
                     [ROUTES.PROFILE || '/profile']: 'Profile',
@@ -145,7 +153,11 @@ const Navbar = ({ onToggleSidebar }) => {
               </button>
             )}
             <NotificationTray />
-            <ProfileDropdown />
+            <ProfileDropdown
+              isOpen={profileOpen}
+              onToggle={onToggleProfile}
+              onClose={onCloseProfile}
+            />
           </div>
         </>
       ) : (

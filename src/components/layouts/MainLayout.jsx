@@ -13,8 +13,51 @@ const MainLayout = ({ children }) => {
   const { user } = useAuth();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [serverDown, setServerDown] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(null);
+
+  const toggleSidebar = () => {
+    setSidebarOpen((prev) => {
+      const next = !prev;
+      if (next) setProfileOpen(false);
+      return next;
+    });
+  };
+
+  const closeSidebar = () => setSidebarOpen(false);
+
+  const toggleProfile = () => {
+    setProfileOpen((prev) => {
+      const next = !prev;
+      if (next) setSidebarOpen(false);
+      return next;
+    });
+  };
+
+  const closeProfile = () => setProfileOpen(false);
+
+  // Close mobile drawers on route navigation
+  useEffect(() => {
+    setSidebarOpen(false);
+    setProfileOpen(false);
+  }, [location.pathname]);
+
+  // Lock background scroll when a mobile drawer is open (<768px)
+  useEffect(() => {
+    if (
+      (sidebarOpen || profileOpen) &&
+      typeof window !== 'undefined' &&
+      window.innerWidth < 768
+    ) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [sidebarOpen, profileOpen]);
 
   useEffect(() => {
     const handleServerDown = () => setServerDown(true);
@@ -37,8 +80,6 @@ const MainLayout = ({ children }) => {
   const noGlobalNavPages = ['/', '/login', '/register'];
   const showNavbar = !noGlobalNavPages.includes(location.pathname); // Hide global nav on auth/landing pages to avoid duplication
 
-  const toggleSidebar = () => setSidebarOpen((prev) => !prev);
-  const closeSidebar = () => setSidebarOpen(false);
 
   return (
     <div className="bg-background min-h-screen selection:bg-primary/30 flex flex-col">
@@ -77,14 +118,25 @@ const MainLayout = ({ children }) => {
           </div>
         )}
 
-        {showNavbar && <Navbar onToggleSidebar={toggleSidebar} />}
+        {showNavbar && (
+          <Navbar
+            onToggleSidebar={toggleSidebar}
+            sidebarOpen={sidebarOpen}
+            onCloseSidebar={closeSidebar}
+            profileOpen={profileOpen}
+            onToggleProfile={toggleProfile}
+            onCloseProfile={closeProfile}
+          />
+        )}
 
         <div className="flex-1 flex flex-col relative">
           <MagicResults />
           <DirectiveBanner />
           <RiskSentinel />
           <main className="flex-1 overflow-x-hidden">
-            <ErrorBoundary>{children}</ErrorBoundary>
+            <ErrorBoundary scope="page" resetKeys={[location.pathname]}>
+              {children}
+            </ErrorBoundary>
           </main>
         </div>
       </div>

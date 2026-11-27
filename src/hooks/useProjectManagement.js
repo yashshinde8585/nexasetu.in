@@ -8,6 +8,7 @@ import AiService from '../api/aiApi';
 import GithubService from '../api/githubApi';
 import { TASK_STATUS, USER_ROLES } from '../constants';
 import MetricsService from '../api/metricsApi';
+import toast from 'react-hot-toast';
 
 import { useAuth } from '../context/AuthContext';
 
@@ -183,10 +184,18 @@ export const useProjectManagement = (id) => {
           context.previousTasks
         );
       }
+      toast.error(
+        err?.response?.data?.message || 'Could not create task. Please try again.'
+      );
     },
     onSuccess: (res) => {
       const createdTask = res.data?.task || res.task;
       MetricsService.trackTaskCreated(createdTask?._id, createdTask?.title);
+      toast.success(
+        createdTask?.title
+          ? `Created task: ${createdTask.title}`
+          : 'Task created successfully.'
+      );
 
       setShowTaskForm(false);
       setAiSuggestion(null);
@@ -216,9 +225,15 @@ export const useProjectManagement = (id) => {
   });
 
   const statusMutation = useMutation({
-    mutationFn: ({ taskId, status }) => {
+    mutationFn: ({ taskId, status, version }) => {
       const task = tasksQuery.data?.find((t) => t._id === taskId);
-      return TaskService.updateTaskStatus(taskId, status, task?.__v);
+      const taskVersion =
+        version !== undefined
+          ? version
+          : task?.__v !== undefined
+          ? task.__v
+          : task?.version;
+      return TaskService.updateTaskStatus(taskId, status, taskVersion);
     },
     onMutate: async ({ taskId, status }) => {
       const queryKey = ['tasks', id, selectedSprintId];
@@ -236,6 +251,19 @@ export const useProjectManagement = (id) => {
           context.previousTasks
         );
       }
+      toast.error(
+        err?.response?.data?.message || 'Failed to update task status. Restoring previous state.'
+      );
+    },
+    onSuccess: (_, variables) => {
+      const statusLabels = {
+        [TASK_STATUS.TODO]: 'To Do',
+        [TASK_STATUS.IN_PROGRESS]: 'In Progress',
+        [TASK_STATUS.IN_REVIEW]: 'In Review',
+        [TASK_STATUS.DONE]: 'Done',
+      };
+      const label = statusLabels[variables.status] || variables.status;
+      toast.success(`Task moved to ${label}.`);
     },
     onSettled: () => {
       queryClient.invalidateQueries({
@@ -251,9 +279,18 @@ export const useProjectManagement = (id) => {
 
   const aiExtractMutation = useMutation({
     mutationFn: (text) => AiService.extractTaskFromText(text),
+    onError: (err) => {
+      toast.error(
+        err?.response?.data?.message || 'Failed to generate task details. Please verify your prompt and try again.'
+      );
+    },
     onSuccess: (res) => {
       const suggestion = res.data?.suggestion;
-      if (!suggestion) return;
+      if (!suggestion) {
+        toast.error('No task details could be extracted from the provided text.');
+        return;
+      }
+      toast.success('Task details generated. Review and adjust below.');
 
       if (projectQuery.data?.sprint) {
         suggestion.sprint =
@@ -279,9 +316,15 @@ export const useProjectManagement = (id) => {
 
   const githubConnectMutation = useMutation({
     mutationFn: (token) => GithubService.connectGithub(token),
+    onError: (err) => {
+      toast.error(
+        err?.response?.data?.message || 'Failed to connect GitHub account. Check token permissions.'
+      );
+    },
     onSuccess: () => {
       setGithubConnected(true);
       setGithubToken('');
+      toast.success('GitHub account connected successfully.');
       queryClient.invalidateQueries(['github-repos']);
     },
   });
@@ -293,17 +336,48 @@ export const useProjectManagement = (id) => {
         repo: repo.name,
         fullName: repo.fullName,
       }),
-    onSuccess: () => queryClient.invalidateQueries(['project', id]),
+    onError: (err) => {
+      toast.error(
+        err?.response?.data?.message || 'Failed to link repository to project.'
+      );
+    },
+    onSuccess: () => {
+      toast.success('Repository linked to project.');
+      queryClient.invalidateQueries(['project', id]);
+    },
   });
 
   const githubActivityMutation = useMutation({
     mutationFn: () => GithubService.getActivitySuggestions(id),
-    onSuccess: (res) => setGithubSuggestions(res.data?.suggestions || []),
+    onError: (err) => {
+      toast.error(
+        err?.response?.data?.message || 'Could not fetch GitHub activity.'
+      );
+    },
+    onSuccess: (res) => {
+      const suggestions = res.data?.suggestions || [];
+      setGithubSuggestions(suggestions);
+      if (suggestions.length === 0) {
+        toast('No new GitHub commits or PRs found since last sync.', {
+          icon: 'ℹ️',
+        });
+      } else {
+        toast.success(`Found ${suggestions.length} task updates from GitHub.`);
+      }
+    },
   });
 
   const githubApproveMutation = useMutation({
     mutationFn: (tasks) => GithubService.approveTasks(id, tasks),
+    onError: (err) => {
+      toast.error(
+        err?.response?.data?.message || 'Failed to approve GitHub task updates.'
+      );
+    },
     onSuccess: (_, approvedTasks) => {
+      toast.success(
+        `Approved ${approvedTasks?.length || 1} task update${approvedTasks?.length === 1 ? '' : 's'}.`
+      );
       setGithubSuggestions((prev) =>
         prev.filter(
           (s) => !approvedTasks.some((at) => at.githubId === s.githubId)
@@ -318,7 +392,13 @@ export const useProjectManagement = (id) => {
 
   const updateProjectMutation = useMutation({
     mutationFn: (data) => ProjectService.updateProject(id, data),
+    onError: (err) => {
+      toast.error(
+        err?.response?.data?.message || 'Failed to update project settings.'
+      );
+    },
     onSuccess: () => {
+      toast.success('Project updated successfully.');
       queryClient.invalidateQueries(['project', id]);
       queryClient.invalidateQueries(['sprint-stats']);
       queryClient.invalidateQueries(['dashboard-stats']);

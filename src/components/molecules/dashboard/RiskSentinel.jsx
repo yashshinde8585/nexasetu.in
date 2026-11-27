@@ -40,7 +40,7 @@ const RiskSentinel = () => {
   if (!alert) return null;
 
   return (
-    <div className="fixed bottom-6 right-6 z-[9999] w-96 animate-in slide-in-from-right-10 duration-500">
+    <div className="fixed bottom-3 right-3 sm:bottom-6 sm:right-6 z-[90] w-[calc(100vw-1.5rem)] sm:w-96 max-w-sm animate-in slide-in-from-bottom-5 sm:slide-in-from-right-10 duration-500 pointer-events-auto">
       <div
         className={`relative overflow-hidden rounded-2xl border bg-black shadow-2xl ${
           alert.type === 'DEADLOCK_DETECTED'
