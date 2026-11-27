@@ -173,7 +173,7 @@ const AdminSettings = () => {
 
       {/* Tab Panels */}
       <div className="flex-1">
-        <ErrorBoundary>
+        <ErrorBoundary scope="component" resetKeys={[activeSubTab]}>
           {activeSubTab === 'workspace' && (
             <WorkspaceSettingsTab
               settings={settings}

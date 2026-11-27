@@ -59,7 +59,7 @@ const AdminDashboard = () => {
 
       {/* Main Dashboard Content */}
       <div className="flex-1">
-        <ErrorBoundary>
+        <ErrorBoundary scope="component" resetKeys={[data]}>
           <CommandCenterTab
             data={data}
             setActiveTab={handleTabSwitch}

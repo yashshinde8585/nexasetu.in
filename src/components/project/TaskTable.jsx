@@ -9,28 +9,28 @@ const TaskTable = ({ tasks, onTaskClick, handleStatusChange }) => {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-border-subtle bg-background-elevated/60">
-                <th className="px-4 py-3 text-xs font-semibold text-text-subtle uppercase tracking-wider">
+                <th className="px-4 py-3 text-xs font-semibold text-text-subtle">
                   Priority
                 </th>
-                <th className="px-4 py-3 text-xs font-semibold text-text-subtle uppercase tracking-wider">
+                <th className="px-4 py-3 text-xs font-semibold text-text-subtle">
                   Ticket ID
                 </th>
-                <th className="px-4 py-3 text-xs font-semibold text-text-subtle uppercase tracking-wider">
+                <th className="px-4 py-3 text-xs font-semibold text-text-subtle">
                   Type
                 </th>
-                <th className="px-4 py-3 text-xs font-semibold text-text-subtle uppercase tracking-wider">
+                <th className="px-4 py-3 text-xs font-semibold text-text-subtle">
                   Title
                 </th>
-                <th className="px-4 py-3 text-xs font-semibold text-text-subtle uppercase tracking-wider">
+                <th className="px-4 py-3 text-xs font-semibold text-text-subtle">
                   Status
                 </th>
-                <th className="px-4 py-3 text-xs font-semibold text-text-subtle uppercase tracking-wider">
+                <th className="px-4 py-3 text-xs font-semibold text-text-subtle">
                   Assignee
                 </th>
-                <th className="px-4 py-3 text-xs font-semibold text-text-subtle uppercase tracking-wider">
+                <th className="px-4 py-3 text-xs font-semibold text-text-subtle">
                   Due Date
                 </th>
-                <th className="px-4 py-3 text-xs font-semibold text-text-subtle uppercase tracking-wider">
+                <th className="px-4 py-3 text-xs font-semibold text-text-subtle">
                   Created
                 </th>
               </tr>
@@ -47,17 +47,16 @@ const TaskTable = ({ tasks, onTaskClick, handleStatusChange }) => {
                       <div className="flex items-center gap-2">
                         <div
                           className={`w-2 h-2 rounded-full ${
-                            task.priority?.toUpperCase() === 'URGENT'
-                              ? 'bg-status-error animate-pulse'
-                              : task.priority?.toUpperCase() === 'HIGH'
-                                ? 'bg-status-error'
-                                : task.priority?.toUpperCase() === 'MEDIUM'
-                                  ? 'bg-status-warning'
-                                  : 'bg-status-success'
+                            task.priority?.toUpperCase() === 'URGENT' ||
+                            task.priority?.toUpperCase() === 'HIGH'
+                              ? 'bg-status-error'
+                              : task.priority?.toUpperCase() === 'MEDIUM'
+                                ? 'bg-status-warning'
+                                : 'bg-status-success'
                           }`}
                         />
                         <span
-                          className={`text-xs font-medium uppercase ${
+                          className={`text-xs font-medium capitalize ${
                             ['HIGH', 'URGENT'].includes(
                               task.priority?.toUpperCase()
                             )
@@ -78,7 +77,7 @@ const TaskTable = ({ tasks, onTaskClick, handleStatusChange }) => {
                     </td>
                     <td className="px-4 py-3">
                       <span
-                        className={`text-xs font-medium uppercase px-2 py-0.5 rounded border ${
+                        className={`text-xs font-medium capitalize px-2 py-0.5 rounded border ${
                           task.type === 'bug'
                             ? 'bg-status-error/10 border-status-error/30 text-status-error'
                             : task.type === 'epic'

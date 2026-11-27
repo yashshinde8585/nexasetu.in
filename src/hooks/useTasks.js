@@ -35,8 +35,16 @@ export const useTasks = (
   // Mutates task status. Uses an optimistic update strategy for perceived instant execution,
   // falling back to previous state if the API request encounters errors.
   const statusMutation = useMutation({
-    mutationFn: ({ taskId, newStatus }) =>
-      TaskService.updateTaskStatus(taskId, newStatus),
+    mutationFn: ({ taskId, newStatus, version }) => {
+      const task = tasks.find((t) => t._id === taskId);
+      const taskVersion =
+        version !== undefined
+          ? version
+          : task?.__v !== undefined
+          ? task.__v
+          : task?.version;
+      return TaskService.updateTaskStatus(taskId, newStatus, taskVersion);
+    },
 
     onMutate: async ({ taskId, newStatus }) => {
       // Cancel active background queries to prevent race conditions where out-of-order responses

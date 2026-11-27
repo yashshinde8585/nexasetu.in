@@ -17,6 +17,7 @@ import {
   RefreshCw,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Info,
   CheckCircle,
   AlertTriangle,
@@ -44,6 +45,7 @@ import { useAdminDashboard } from '../../hooks/useAdminDashboard';
 // Atomic Components & Modals
 import Skeleton from '../../components/atoms/Skeleton';
 import TacticalModal from '../../components/molecules/TacticalModal';
+import { ActionPortalMenu, ActionSubmenuPortal } from '../../components/molecules/ActionPortalMenu';
 import UserEditModal from '../../components/organisms/admin/UserEditModal';
 
 // Modular Admin Team Management Tabs
@@ -92,9 +94,11 @@ const Team = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [lastUpdated, setLastUpdated] = useState(new Date());
-  const [activeDropdownId, setActiveDropdownId] = useState(null);
-  const [activeProjectMenuId, setActiveProjectMenuId] = useState(null);
+  const [menuAnchor, setMenuAnchor] = useState(null); // { item, triggerEl }
+  const [isSubmenuOpen, setIsSubmenuOpen] = useState(false);
+  const [submenuTriggerEl, setSubmenuTriggerEl] = useState(null);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+  const [expandedMemberId, setExpandedMemberId] = useState(null);
   const [actionLoading, setActionLoading] = useState({
     updating: null,
   });
@@ -302,16 +306,6 @@ const Team = () => {
     return () => abortController.abort();
   }, [user, navigate, fetchData, userProjectId]);
 
-  // Click outside listener to close action menus
-  useEffect(() => {
-    const handleClickOutside = () => {
-      setActiveDropdownId(null);
-      setActiveProjectMenuId(null);
-    };
-    window.addEventListener('click', handleClickOutside);
-    return () => window.removeEventListener('click', handleClickOutside);
-  }, []);
-
   /**
    * Action Handlers
    */
@@ -325,8 +319,9 @@ const Team = () => {
       toast.error('Failed to update project assignment.');
     } finally {
       setActionLoading((prev) => ({ ...prev, updating: null }));
-      setActiveProjectMenuId(null);
-      setActiveDropdownId(null);
+      setMenuAnchor(null);
+      setIsSubmenuOpen(false);
+      setSubmenuTriggerEl(null);
     }
   };
 
@@ -652,13 +647,13 @@ const Team = () => {
           )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
           {isManagementView ? (
             <>
               {canManageUsers && (
                 <button
                   onClick={() => navigate('/settings?tab=roles')}
-                  className="h-9 px-3.5 bg-background-elevated border border-border-subtle hover:border-border font-medium text-xs rounded-xs transition-all flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer text-text"
+                  className="h-9 px-3.5 bg-background-elevated border border-border-subtle hover:border-border font-medium text-xs rounded-xs transition-all flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer text-text flex-1 sm:flex-initial"
                 >
                   <ShieldCheck size={13} className="text-primary" />
                   <span>Manage roles</span>
@@ -667,14 +662,14 @@ const Team = () => {
 
               <button
                 onClick={handleCloseManagement}
-                className="h-9 px-3.5 bg-background-elevated border border-border-subtle hover:bg-background-elevated/80 font-medium text-xs rounded-xs transition-all flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer text-text"
+                className="h-9 px-3.5 bg-background-elevated border border-border-subtle hover:bg-background-elevated/80 font-medium text-xs rounded-xs transition-all flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer text-text flex-1 sm:flex-initial"
               >
                 <ArrowLeft size={13} /> Back to members
               </button>
             </>
           ) : (
             <>
-              <div className="relative group min-w-[220px]">
+              <div className="relative group w-full sm:w-auto sm:min-w-[220px] flex-1">
                 <Search
                   className="absolute left-3 top-1/2 -translate-y-1/2 text-text-subtler group-focus-within:text-primary transition-colors"
                   size={14}
@@ -696,32 +691,34 @@ const Team = () => {
                 )}
               </div>
 
-              <button
-                onClick={handleExportCSV}
-                disabled={!data.items?.length}
-                className="h-9 px-3.5 bg-background-elevated border border-border-subtle hover:border-border disabled:opacity-40 text-text font-medium text-xs rounded-xs transition-all flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer"
-              >
-                <Download size={13} className="text-text-subtle" /> Export
-              </button>
-
-              {canManageUsers && (
+              <div className="flex items-center gap-2 w-full sm:w-auto">
                 <button
-                  onClick={() => handleOpenManagement('directory')}
-                  className="h-9 px-3.5 bg-background-elevated border border-border-subtle hover:border-primary/50 font-medium text-xs rounded-xs transition-all flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer text-text"
+                  onClick={handleExportCSV}
+                  disabled={!data.items?.length}
+                  className="h-9 px-3.5 bg-background-elevated border border-border-subtle hover:border-border disabled:opacity-40 text-text font-medium text-xs rounded-xs transition-all flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer flex-1 sm:flex-initial"
                 >
-                  <Users size={13} className="text-primary" /> Team management
+                  <Download size={13} className="text-text-subtle" /> Export
                 </button>
-              )}
-            </>
-          )}
 
-          {canInviteUsers && (
-            <button
-              onClick={() => navigate('/team/add')}
-              className="h-9 px-3.5 bg-primary text-black font-semibold text-xs rounded-xs transition-all flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer hover:bg-primary/95"
-            >
-              <UserPlus size={13} /> Add user
-            </button>
+                {canManageUsers && (
+                  <button
+                    onClick={() => handleOpenManagement('directory')}
+                    className="h-9 px-3.5 bg-background-elevated border border-border-subtle hover:border-primary/50 font-medium text-xs rounded-xs transition-all flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer text-text flex-1 sm:flex-initial"
+                  >
+                    <Users size={13} className="text-primary" /> Team management
+                  </button>
+                )}
+
+                {canInviteUsers && (
+                  <button
+                    onClick={() => navigate('/team/add')}
+                    className="h-9 px-3.5 bg-primary text-black font-semibold text-xs rounded-xs transition-all flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer hover:bg-primary/95 shrink-0"
+                  >
+                    <UserPlus size={13} /> Add user
+                  </button>
+                )}
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -806,73 +803,73 @@ const Team = () => {
         </div>
       ) : (
         <>
-          {/* 2. Top Analytics Cards (Total Members, Active Members, Pending Invitations) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {kpiCards.map((card) => (
-          <div
-            key={card.label}
-            className="bg-card border border-border-subtle p-4 flex flex-col justify-between hover:border-border transition-all rounded-sm group relative"
-          >
-            <div className="flex justify-between items-center mb-1">
-              <span className="text-xs font-medium text-text-subtle">
-                {card.label}
-              </span>
-              <div className="p-1.5 rounded-xs bg-background-elevated border border-border-subtle">
-                {card.icon}
+          {/* 2. Top Analytics Metric Strip (Total Members, Active Members, Pending Invitations) */}
+          <div className="bg-card border border-border-subtle rounded-md p-3 sm:p-4 grid grid-cols-3 divide-x divide-border-subtle/50 shadow-xs">
+            {kpiCards.map((card, idx) => (
+              <div
+                key={card.label}
+                className={`flex flex-col justify-center px-2 sm:px-4 ${idx === 0 ? 'pl-1 sm:pl-2' : ''}`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[11px] sm:text-xs font-medium text-text-subtle truncate">
+                    {card.label}
+                  </span>
+                  <div className="hidden sm:flex p-1 rounded bg-background-elevated border border-border-subtle/50 text-text-subtle">
+                    {card.icon}
+                  </div>
+                </div>
+
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-lg sm:text-2xl font-bold tracking-tight text-text">
+                    {card.count.toLocaleString()}
+                  </span>
+                  {card.subtext && (
+                    <span className="hidden sm:inline text-[10px] text-text-subtler font-normal">
+                      {card.subtext}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* 3. Main Directory Table */}
+          <div className="bg-card border border-border-subtle flex flex-col rounded-sm">
+            {/* Table Title and Actions / Filters */}
+            <div className="p-3 sm:p-4 border-b border-border-subtle flex flex-col md:flex-row md:items-center justify-between gap-3 bg-background-elevated/40">
+              <div className="flex items-center gap-3">
+                <h2 className="text-sm font-semibold text-text">
+                  Members ({filteredAndSortedItems.length}
+                  {statusFilter !== 'ALL' && ` of ${data.total}`})
+                </h2>
+              </div>
+
+              {/* Status Filters: Responsive Segmented Control */}
+              <div className="flex flex-wrap items-center gap-1 p-0.5 bg-background-elevated border border-border-subtle rounded-sm">
+                {[
+                  { key: 'ALL', label: 'All' },
+                  { key: 'ACTIVE', label: 'Active' },
+                  { key: 'INACTIVE', label: 'Inactive' },
+                  { key: 'DEACTIVATED', label: 'Deactivated' },
+                  { key: 'INVITED', label: 'Pending invites' },
+                ].map((tab) => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setStatusFilter(tab.key)}
+                    className={`px-2.5 sm:px-3 py-1 text-xs font-medium rounded-xs transition-all cursor-pointer whitespace-nowrap ${
+                      statusFilter === tab.key
+                        ? 'bg-primary text-black font-semibold shadow-xs'
+                        : 'text-text-subtle hover:text-text hover:bg-background-elevated/50'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
               </div>
             </div>
 
-            <div className="flex items-baseline justify-between mt-2">
-              <span className="text-2xl font-bold tracking-tight text-text">
-                {card.count.toLocaleString()}
-              </span>
-              {card.subtext && (
-                <span className="text-xs text-text-subtler font-normal">
-                  {card.subtext}
-                </span>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* 3. Main Directory Table */}
-      <div className="bg-card border border-border-subtle flex flex-col rounded-sm">
-        {/* Table Title and Actions / Filters */}
-        <div className="p-4 border-b border-border-subtle flex flex-col md:flex-row md:items-center justify-between gap-3 bg-background-elevated/40">
-          <div className="flex items-center gap-3">
-            <h2 className="text-sm font-semibold text-text">
-              Members ({filteredAndSortedItems.length}
-              {statusFilter !== 'ALL' && ` of ${data.total}`})
-            </h2>
-          </div>
-
-          {/* Status Filters: Compact Segmented Control */}
-          <div className="inline-flex p-0.5 bg-background-elevated border border-border-subtle rounded-sm overflow-x-auto no-scrollbar">
-            {[
-              { key: 'ALL', label: 'All' },
-              { key: 'ACTIVE', label: 'Active' },
-              { key: 'INACTIVE', label: 'Inactive' },
-              { key: 'DEACTIVATED', label: 'Deactivated' },
-              { key: 'INVITED', label: 'Pending invites' },
-            ].map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setStatusFilter(tab.key)}
-                className={`px-3 py-1 text-xs font-medium rounded-xs transition-all cursor-pointer whitespace-nowrap ${
-                  statusFilter === tab.key
-                    ? 'bg-primary text-black font-semibold shadow-xs'
-                    : 'text-text-subtle hover:text-text hover:bg-background-elevated/50'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Combined User Table */}
-        <div className="overflow-x-auto">
+        {/* Combined User Table (Desktop View md+) */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[900px]">
             <thead>
               <tr className="text-xs text-text-subtle font-medium border-b border-border-subtle bg-background-elevated/40 select-none">
@@ -1061,193 +1058,36 @@ const Team = () => {
                     </td>
 
                     {/* Actions Dropdown (Permission-aware) */}
-                    <td className="py-3 px-4 text-right relative">
+                    <td className="py-3 px-4 text-right">
                       {!hasAnyAction ? (
                         <span className="text-text-subtler font-medium text-xs pr-2 select-none">
                           —
                         </span>
                       ) : (
-                        <>
-                          <button
-                            aria-label="Actions menu"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveDropdownId(
-                                activeDropdownId === item.id ? null : item.id
-                              );
-                              setActiveProjectMenuId(null);
-                            }}
-                            className="p-1.5 text-text-subtle hover:text-text rounded-xs hover:bg-background-elevated transition-colors cursor-pointer"
-                          >
-                            <MoreVertical size={15} />
-                          </button>
-
-                          {activeDropdownId === item.id && (
-                            <div
-                              onClick={(e) => e.stopPropagation()}
-                              className="absolute right-4 mt-1 w-52 bg-card border border-border-subtle rounded-sm shadow-xl z-50 text-left py-1 animate-fade-in"
-                            >
-                              {item.type === 'member' && (
-                                <>
-                                  {/* Direct Role & Permission Edit */}
-                                  {canManageUsers && (
-                                    <button
-                                      onClick={() => {
-                                        setActiveDropdownId(null);
-                                        setEditingUser(item);
-                                      }}
-                                      className="w-full px-3 py-2 text-xs font-medium text-text-subtle hover:text-text hover:bg-background-elevated flex items-center gap-2 cursor-pointer"
-                                    >
-                                      <Shield size={13} className="text-primary" />
-                                      <span>Edit role & access</span>
-                                    </button>
-                                  )}
-
-                                  {/* Project Allocation Sub-menu Trigger */}
-                                  {canReassign && (
-                                    <div className="relative">
-                                      <button
-                                        onClick={() =>
-                                          setActiveProjectMenuId(
-                                            activeProjectMenuId === item.id
-                                              ? null
-                                              : item.id
-                                          )
-                                        }
-                                        className="w-full px-3 py-2 text-xs font-medium text-text-subtle hover:text-text hover:bg-background-elevated flex items-center justify-between cursor-pointer"
-                                      >
-                                        <span className="flex items-center gap-2">
-                                          <Box size={13} className="text-secondary" />
-                                          <span>Reassign project</span>
-                                        </span>
-                                        <ChevronRight size={12} />
-                                      </button>
-
-                                      {activeProjectMenuId === item.id && (
-                                        <div className="absolute right-full top-0 mr-1 w-48 bg-card border border-border-subtle rounded-sm shadow-xl py-1 z-50 overflow-y-auto max-h-48">
-                                          <button
-                                            onClick={() =>
-                                              handleAssignProject(item.id, null)
-                                            }
-                                            className="w-full px-3 py-2 text-xs font-medium text-text-subtle hover:text-text hover:bg-background-elevated text-left flex justify-between items-center cursor-pointer"
-                                          >
-                                            <span>Unassign project</span>
-                                            {!item.assignedProjectId && (
-                                              <Check
-                                                size={12}
-                                                className="text-primary"
-                                              />
-                                            )}
-                                          </button>
-                                          {allProjects.map((p) => {
-                                            const isCurrent =
-                                              item.assignedProjectId?.id ===
-                                                p.id ||
-                                              memberProjects.some(
-                                                (mp) =>
-                                                  mp.id === p.id ||
-                                                  mp.name === p.name
-                                              );
-                                            return (
-                                              <button
-                                                key={p.id}
-                                                onClick={() =>
-                                                  handleAssignProject(
-                                                    item.id,
-                                                    p.id
-                                                  )
-                                                }
-                                                className="w-full px-3 py-2 text-xs font-medium text-text-subtle hover:text-text hover:bg-background-elevated text-left flex justify-between items-center cursor-pointer"
-                                              >
-                                                <span className="truncate max-w-[120px]">
-                                                  {p.name}
-                                                </span>
-                                                {isCurrent && (
-                                                  <Check
-                                                    size={12}
-                                                    className="text-primary"
-                                                  />
-                                                )}
-                                              </button>
-                                            );
-                                          })}
-                                        </div>
-                                      )}
-                                    </div>
-                                  )}
-
-                                  {/* Deactivate / Reactivate User */}
-                                  {canDeactivate && (
-                                    <button
-                                      onClick={() => {
-                                        setActiveDropdownId(null);
-                                        setModalConfig({
-                                          isOpen: true,
-                                          title:
-                                            item.status === 'Deactivated'
-                                              ? 'Reactivate user'
-                                              : 'Deactivate user',
-                                          message: `Are you sure you want to ${
-                                            item.status === 'Deactivated'
-                                              ? 'reactivate'
-                                              : 'deactivate'
-                                          } ${item.name}? This will update their login access.`,
-                                          confirmText:
-                                            item.status === 'Deactivated'
-                                              ? 'Reactivate'
-                                              : 'Deactivate',
-                                          type:
-                                            item.status === 'Deactivated'
-                                              ? 'info'
-                                              : 'danger',
-                                          onConfirm: () =>
-                                            handleToggleDeactivate(
-                                              item.id,
-                                              item.status
-                                            ),
-                                        });
-                                      }}
-                                      className="w-full px-3 py-2 text-xs font-medium text-text-subtle hover:text-text hover:bg-background-elevated flex items-center gap-2 text-left cursor-pointer"
-                                    >
-                                      {item.status === 'Deactivated' ? (
-                                        <>
-                                          <UserCheck size={13} className="text-status-success" />
-                                          <span>Reactivate member</span>
-                                        </>
-                                      ) : (
-                                        <>
-                                          <UserMinus size={13} className="text-status-error" />
-                                          <span>Deactivate member</span>
-                                        </>
-                                      )}
-                                    </button>
-                                  )}
-                                </>
-                              )}
-
-                              {item.type === 'invitation' && canRevoke && (
-                                <button
-                                  onClick={() => {
-                                    setActiveDropdownId(null);
-                                    setModalConfig({
-                                      isOpen: true,
-                                      title: 'Revoke invitation',
-                                      message: `Are you sure you want to cancel the pending invitation sent to ${item.email}?`,
-                                      confirmText: 'Revoke',
-                                      type: 'danger',
-                                      onConfirm: () =>
-                                        handleRevokeInvitation(item.id),
-                                    });
-                                  }}
-                                  className="w-full px-3 py-2 text-xs font-medium text-status-error hover:bg-background-elevated flex items-center gap-2 text-left cursor-pointer"
-                                >
-                                  <Trash2 size={13} />
-                                  <span>Revoke invitation</span>
-                                </button>
-                              )}
-                            </div>
-                          )}
-                        </>
+                        <button
+                          aria-label="Actions menu"
+                          aria-haspopup="menu"
+                          aria-expanded={menuAnchor?.item?.id === item.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (menuAnchor?.item?.id === item.id) {
+                              setMenuAnchor(null);
+                              setIsSubmenuOpen(false);
+                              setSubmenuTriggerEl(null);
+                            } else {
+                              setMenuAnchor({ item, triggerEl: e.currentTarget });
+                              setIsSubmenuOpen(false);
+                              setSubmenuTriggerEl(null);
+                            }
+                          }}
+                          className={`p-1.5 rounded-xs transition-colors cursor-pointer ${
+                            menuAnchor?.item?.id === item.id
+                              ? 'text-text bg-background-elevated'
+                              : 'text-text-subtle hover:text-text hover:bg-background-elevated'
+                          }`}
+                        >
+                          <MoreVertical size={15} />
+                        </button>
                       )}
                     </td>
                   </tr>
@@ -1272,6 +1112,174 @@ const Team = () => {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Directory Cards (Mobile View <768px) */}
+        <div className="block md:hidden divide-y divide-border-subtle/50">
+          {filteredAndSortedItems.length > 0 ? (
+            filteredAndSortedItems.map((item) => {
+              const memberProjects = getMemberProjects(item);
+              const isTargetSelf =
+                item.id === user?._id || item.id === user?.id;
+              const canReassign =
+                item.type === 'member' && canManageProjects;
+              const canDeactivate =
+                item.type === 'member' && canManageUsers && !isTargetSelf;
+              const canRevoke = item.type === 'invitation' && canInviteUsers;
+              const hasAnyAction =
+                canReassign || canDeactivate || canRevoke || canManageUsers;
+              const isExpanded = expandedMemberId === item.id;
+
+              return (
+                <div key={item.id} className="p-3.5 space-y-2.5">
+                  {/* Top Row: User Avatar, Name, Email, Status & Action */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <div className="w-8 h-8 rounded-sm bg-background-elevated border border-border-subtle text-text flex items-center justify-center font-bold uppercase text-xs shrink-0 overflow-hidden select-none">
+                        {item.profilePicture ? (
+                          <img
+                            src={item.profilePicture}
+                            alt={item.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          item.name?.slice(0, 2)
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium text-xs text-text truncate">
+                          {item.name}
+                        </div>
+                        <div className="text-[11px] text-text-subtler truncate">
+                          {item.email}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span
+                        className={`px-2 py-0.5 text-[10px] font-medium rounded-sm leading-none whitespace-nowrap ${getStatusBadgeClass(
+                          item.status
+                        )}`}
+                      >
+                        {item.status}
+                      </span>
+
+                      {hasAnyAction && (
+                        <button
+                          type="button"
+                          aria-label="Actions menu"
+                          aria-haspopup="menu"
+                          aria-expanded={menuAnchor?.item?.id === item.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (menuAnchor?.item?.id === item.id) {
+                              setMenuAnchor(null);
+                              setIsSubmenuOpen(false);
+                              setSubmenuTriggerEl(null);
+                            } else {
+                              setMenuAnchor({ item, triggerEl: e.currentTarget });
+                              setIsSubmenuOpen(false);
+                              setSubmenuTriggerEl(null);
+                            }
+                          }}
+                          className={`p-1.5 rounded-xs transition-colors cursor-pointer ${
+                            menuAnchor?.item?.id === item.id
+                              ? 'text-text bg-background-elevated'
+                              : 'text-text-subtle hover:text-text hover:bg-background-elevated'
+                          }`}
+                        >
+                          <MoreVertical size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Middle Row: Role Badge & Expand Toggle */}
+                  <div className="flex items-center justify-between gap-2 pt-0.5">
+                    <span
+                      className={`px-2 py-0.5 text-[10px] font-medium rounded-sm leading-none whitespace-nowrap ${getRoleBadgeClass(
+                        item.role,
+                        item.jobTitle
+                      )}`}
+                    >
+                      {getRoleDisplayName(item.role, item.jobTitle)}
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setExpandedMemberId(isExpanded ? null : item.id)
+                      }
+                      className="text-[11px] font-medium text-text-subtle hover:text-text flex items-center gap-1 transition-colors py-1 cursor-pointer"
+                      aria-expanded={isExpanded}
+                    >
+                      <span>{isExpanded ? 'Hide details' : 'Show details'}</span>
+                      <ChevronDown
+                        size={12}
+                        className={`transition-transform duration-200 ${
+                          isExpanded ? 'rotate-180 text-primary' : ''
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Expandable Accordion: Details Panel */}
+                  {isExpanded && (
+                    <div className="pt-2 pb-1 border-t border-border-subtle/40 space-y-2 text-xs animate-in fade-in duration-200">
+                      {/* Assigned Projects */}
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="text-text-subtler text-[11px] shrink-0">
+                          Assigned projects
+                        </span>
+                        <div className="text-right">
+                          {memberProjects.length === 0 ? (
+                            <span className="text-text-subtler text-[11px]">Unassigned</span>
+                          ) : (
+                            <div className="flex flex-wrap justify-end gap-1">
+                              {memberProjects.map((p) => (
+                                <span
+                                  key={p.id}
+                                  className="inline-flex items-center gap-1 text-[11px] font-medium text-text-subtle bg-background-elevated border border-border-subtle px-1.5 py-0.5 rounded"
+                                >
+                                  <Box size={10} className="text-primary shrink-0" />
+                                  <span className="truncate max-w-[120px]">{p.name}</span>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Last Active */}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-text-subtler text-[11px]">Last active</span>
+                        <span className="text-text-subtle text-[11px]">
+                          {formatLastActive(item.lastActive)}
+                        </span>
+                      </div>
+
+                      {/* Joined On */}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-text-subtler text-[11px]">Joined on</span>
+                        <span className="text-text-subtle text-[11px]">
+                          {formatJoinedOn(item.joinedOn)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          ) : (
+            <div className="py-10 text-center px-4">
+              <AlertTriangle size={24} className="mx-auto text-text-subtler mb-2" />
+              <h3 className="text-xs font-semibold text-text">No members found</h3>
+              <p className="text-[11px] text-text-subtle font-normal mt-0.5">
+                No members or invitations matched the search or filter criteria.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* 4. Pagination Control Footer */}
@@ -1403,6 +1411,206 @@ const Team = () => {
       </div>
         </>
       )}
+
+      {/* Portal-Based Actions Menu & Submenu */}
+      {menuAnchor && (() => {
+        const item = menuAnchor.item;
+        const isTargetSelf =
+          item.id === user?._id || item.id === user?.id;
+        const canReassignItem =
+          item.type === 'member' && canManageProjects;
+        const canDeactivateItem =
+          item.type === 'member' && canManageUsers && !isTargetSelf;
+        const canRevokeItem = item.type === 'invitation' && canInviteUsers;
+
+        return (
+          <>
+            <ActionPortalMenu
+              triggerEl={menuAnchor.triggerEl}
+              isOpen={Boolean(menuAnchor)}
+              onClose={() => {
+                setMenuAnchor(null);
+                setIsSubmenuOpen(false);
+                setSubmenuTriggerEl(null);
+              }}
+              width={208}
+            >
+              {item.type === 'member' && (
+                <>
+                  {/* Direct Role & Permission Edit */}
+                  {canManageUsers && (
+                    <button
+                      onClick={() => {
+                        const targetItem = item;
+                        setMenuAnchor(null);
+                        setIsSubmenuOpen(false);
+                        setSubmenuTriggerEl(null);
+                        setEditingUser(targetItem);
+                      }}
+                      className="w-full px-3 py-2 text-xs font-medium text-text-subtle hover:text-text hover:bg-background-elevated flex items-center gap-2 cursor-pointer transition-colors"
+                    >
+                      <Shield size={13} className="text-primary" />
+                      <span>Edit role & access</span>
+                    </button>
+                  )}
+
+                  {/* Project Allocation Sub-menu Trigger */}
+                  {canReassignItem && (
+                    <button
+                      ref={(node) => {
+                        if (node && !submenuTriggerEl) {
+                          setSubmenuTriggerEl(node);
+                        }
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSubmenuTriggerEl(e.currentTarget);
+                        setIsSubmenuOpen((prev) => !prev);
+                      }}
+                      onMouseEnter={(e) => {
+                        setSubmenuTriggerEl(e.currentTarget);
+                        setIsSubmenuOpen(true);
+                      }}
+                      aria-haspopup="menu"
+                      aria-expanded={isSubmenuOpen}
+                      className="w-full px-3 py-2 text-xs font-medium text-text-subtle hover:text-text hover:bg-background-elevated flex items-center justify-between cursor-pointer transition-colors"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Box size={13} className="text-secondary" />
+                        <span>Reassign project</span>
+                      </span>
+                      <ChevronRight
+                        size={12}
+                        className={`text-text-subtle transition-transform ${isSubmenuOpen ? 'translate-x-0.5' : ''}`}
+                      />
+                    </button>
+                  )}
+
+                  {/* Deactivate / Reactivate User */}
+                  {canDeactivateItem && (
+                    <button
+                      onClick={() => {
+                        const targetItem = item;
+                        setMenuAnchor(null);
+                        setIsSubmenuOpen(false);
+                        setSubmenuTriggerEl(null);
+                        setModalConfig({
+                          isOpen: true,
+                          title:
+                            targetItem.status === 'Deactivated'
+                              ? 'Reactivate user'
+                              : 'Deactivate user',
+                          message: `Are you sure you want to ${
+                            targetItem.status === 'Deactivated'
+                              ? 'reactivate'
+                              : 'deactivate'
+                          } ${targetItem.name}? This will update their login access.`,
+                          confirmText:
+                            targetItem.status === 'Deactivated'
+                              ? 'Reactivate'
+                              : 'Deactivate',
+                          type:
+                            targetItem.status === 'Deactivated'
+                              ? 'info'
+                              : 'danger',
+                          onConfirm: () =>
+                            handleToggleDeactivate(
+                              targetItem.id,
+                              targetItem.status
+                            ),
+                        });
+                      }}
+                      className={`w-full px-3 py-2 text-xs font-medium text-left cursor-pointer hover:bg-background-elevated flex items-center gap-2 transition-colors ${
+                        canManageUsers || canReassignItem
+                          ? 'border-t border-border-subtle/40 mt-1 pt-1.5'
+                          : ''
+                      }`}
+                    >
+                      {item.status === 'Deactivated' ? (
+                        <>
+                          <UserCheck size={13} className="text-status-success" />
+                          <span className="text-status-success">Reactivate member</span>
+                        </>
+                      ) : (
+                        <>
+                          <UserMinus size={13} className="text-status-error" />
+                          <span className="text-status-error">Deactivate member</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                </>
+              )}
+
+              {item.type === 'invitation' && canRevokeItem && (
+                <button
+                  onClick={() => {
+                    const targetItem = item;
+                    setMenuAnchor(null);
+                    setIsSubmenuOpen(false);
+                    setSubmenuTriggerEl(null);
+                    setModalConfig({
+                      isOpen: true,
+                      title: 'Revoke invitation',
+                      message: `Are you sure you want to cancel the pending invitation sent to ${targetItem.email}?`,
+                      confirmText: 'Revoke',
+                      type: 'danger',
+                      onConfirm: () => handleRevokeInvitation(targetItem.id),
+                    });
+                  }}
+                  className="w-full px-3 py-2 text-xs font-medium text-status-error hover:bg-background-elevated flex items-center gap-2 text-left cursor-pointer transition-colors"
+                >
+                  <Trash2 size={13} />
+                  <span>Revoke invitation</span>
+                </button>
+              )}
+            </ActionPortalMenu>
+
+            {/* Submenu for Project Reassignment */}
+            {canReassignItem && isSubmenuOpen && submenuTriggerEl && (
+              <ActionSubmenuPortal
+                parentTriggerEl={submenuTriggerEl}
+                isOpen={isSubmenuOpen}
+                onClose={() => setIsSubmenuOpen(false)}
+                width={208}
+                maxHeight={200}
+              >
+                <button
+                  onClick={() => handleAssignProject(item.id, null)}
+                  className="w-full px-3 py-2 text-xs font-medium text-text-subtle hover:text-text hover:bg-background-elevated text-left flex justify-between items-center cursor-pointer transition-colors"
+                >
+                  <span>Unassign project</span>
+                  {!item.assignedProjectId && (
+                    <Check size={12} className="text-primary shrink-0 ml-2" />
+                  )}
+                </button>
+                {allProjects.map((p) => {
+                  const memberProjects = Array.isArray(item.projects)
+                    ? item.projects
+                    : [];
+                  const isCurrent =
+                    item.assignedProjectId?.id === p.id ||
+                    memberProjects.some(
+                      (mp) => mp.id === p.id || mp.name === p.name
+                    );
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => handleAssignProject(item.id, p.id)}
+                      className="w-full px-3 py-2 text-xs font-medium text-text-subtle hover:text-text hover:bg-background-elevated text-left flex justify-between items-center cursor-pointer transition-colors"
+                    >
+                      <span className="truncate max-w-[130px]">{p.name}</span>
+                      {isCurrent && (
+                        <Check size={12} className="text-primary shrink-0 ml-2" />
+                      )}
+                    </button>
+                  );
+                })}
+              </ActionSubmenuPortal>
+            )}
+          </>
+        );
+      })()}
 
       {/* Action Confirmation Modal */}
       <TacticalModal

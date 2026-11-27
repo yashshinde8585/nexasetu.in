@@ -1,23 +1,18 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Activity,
   Clock,
   AlertCircle,
   Package,
   ShieldCheck,
-  Target,
-  Bug,
   Shield,
-  BarChart3,
-  GitPullRequest,
-  GitBranch,
-  XCircle,
+  GitCommit,
   ArrowRight,
+  TrendingUp,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
-  AreaChart,
-  Area,
   PieChart,
   Pie,
   Cell,
@@ -29,6 +24,8 @@ import {
   Tooltip,
   BarChart,
   Bar,
+  AreaChart,
+  Area,
 } from 'recharts';
 
 const TLOverviewTab = ({
@@ -72,1083 +69,988 @@ const TLOverviewTab = ({
   workItemsChartData = [],
   setActiveTab,
 }) => {
+  // Verification for Code Health Score: require real supporting telemetry data
+  const hasCodeHealthData =
+    codeHealthScore > 0 &&
+    (codeHealthOverview.coverage > 0 ||
+      codeHealthOverview.eslint > 0 ||
+      codeHealthOverview.security > 0);
+
+  // Check if burndown data has sufficient points to render a meaningful line chart
+  const hasBurndownData =
+    Array.isArray(burndownData) && burndownData.length > 1;
+
+  // Chart data calculation for Work Items with NexaSetu design tokens
+  const computedChartData = useMemo(() => {
+    if (workItemsChartData && workItemsChartData.length > 0) {
+      return workItemsChartData;
+    }
+    return [
+      {
+        name: 'Done',
+        value: workItemsStatus.done || 0,
+        color: '#10B981',
+      },
+      {
+        name: 'In Progress',
+        value: workItemsStatus.inProgress || 0,
+        color: '#3B82F6',
+      },
+      {
+        name: 'In Review',
+        value: workItemsStatus.inReview || 0,
+        color: '#8B5CF6',
+      },
+      {
+        name: 'Blocked',
+        value: workItemsStatus.blocked || 0,
+        color: '#EF4444',
+      },
+    ];
+  }, [workItemsChartData, workItemsStatus]);
+
+  const activeChartData = computedChartData.filter((item) => item.value > 0);
+
   return (
-    <div className="flex flex-col gap-6 animate-fade-in">
-      {/* Row 1: Six Key Metrics Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        {/* Card 1: Sprint Progress */}
-        <div className="bg-card border border-border-subtle p-3.5 flex flex-col justify-between group hover:border-border transition-all rounded-none min-h-[96px]">
-          <div className="flex justify-between items-start">
-            <span className="text-[9px] font-black uppercase tracking-widest text-text-subtle">
-              Sprint Progress
-            </span>
-            <span className="text-[#10B981]">
-              <Activity size={12} />
-            </span>
-          </div>
-          <div className="flex items-end justify-between mt-2">
-            <div>
-              <span className="text-2xl font-black tracking-tight">
-                {sprintProgress}%
-              </span>
-              {comparisons?.sprintProgress ? (
-                <div
-                  className={`text-[8px] font-black mt-1 flex items-center gap-0.5 ${
-                    comparisons.sprintProgress.direction === 'up'
-                      ? 'text-[#10B981]'
-                      : 'text-[#EF4444]'
-                  }`}
-                >
-                  <span>
-                    {comparisons.sprintProgress.direction === 'up' ? '↑' : '↓'}{' '}
+    <div className="flex flex-col gap-8 animate-fade-in">
+      {/* =========================================================================
+          GROUP 1: SPRINT AT A GLANCE (Unified telemetry strip with minimal borders)
+          ========================================================================= */}
+      <section aria-label="Sprint at a Glance">
+        <div className="bg-card border border-border-subtle rounded-xl p-4 sm:p-5 shadow-xs">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 divide-y sm:divide-y-0 sm:divide-x divide-border-subtle/50 gap-y-4 sm:gap-y-0">
+            {/* KPI 1: Sprint Progress */}
+            <div className="flex flex-col justify-between sm:px-3.5 first:sm:pl-0 pt-2 sm:pt-0">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-medium text-text-subtle truncate">
+                  Sprint Progress
+                </span>
+                <Activity size={14} className="text-text-subtle shrink-0" />
+              </div>
+              <div className="flex items-baseline justify-between mt-1">
+                <span className="text-2xl font-bold tracking-tight text-text">
+                  {sprintProgress}%
+                </span>
+                {comparisons?.sprintProgress && (
+                  <span
+                    className={`text-[11px] font-medium ${
+                      comparisons.sprintProgress.direction === 'up'
+                        ? 'text-status-success'
+                        : 'text-status-error'
+                    }`}
+                  >
+                    {comparisons.sprintProgress.direction === 'up' ? '↑' : '↓'}
                     {Math.abs(comparisons.sprintProgress.diff)}%
                   </span>
-                  <span className="text-text-subtle font-bold uppercase tracking-wider">
-                    vs last sprint
-                  </span>
-                </div>
-              ) : (
-                <div className="text-[8px] text-text-subtler font-bold mt-1 uppercase tracking-wider">
-                  No comparison data
-                </div>
-              )}
-            </div>
-          </div>
-          {/* Horizontal Progress Bar */}
-          <div className="w-full bg-background-elevated h-1.5 rounded-none mt-2.5 overflow-hidden">
-            <div
-              className="bg-status-success h-full"
-              style={{ width: `${sprintProgress}%` }}
-            />
-          </div>
-        </div>
-
-        {/* Card 2: Stories Completed */}
-        <div className="bg-card border border-border-subtle p-3.5 flex flex-col justify-between group hover:border-border transition-all rounded-none min-h-[96px]">
-          <div className="flex justify-between items-start">
-            <span className="text-[9px] font-black uppercase tracking-widest text-text-subtle">
-              Stories Completed
-            </span>
-            <span className="text-blue-400">
-              <ShieldCheck size={12} />
-            </span>
-          </div>
-          <div className="flex items-end justify-between mt-2">
-            <div>
-              <span className="text-2xl font-black tracking-tight">
-                {storiesCompleted.completed}{' '}
-                <span className="text-text-subtle text-sm font-normal">
-                  / {storiesCompleted.total}
-                </span>
-              </span>
-              {comparisons?.storiesCompleted ? (
-                <div
-                  className={`text-[8px] font-black mt-1 flex items-center gap-0.5 ${
-                    comparisons.storiesCompleted.direction === 'up'
-                      ? 'text-[#10B981]'
-                      : 'text-[#EF4444]'
-                  }`}
-                >
-                  <span>
-                    {comparisons.storiesCompleted.direction === 'up'
-                      ? '↑'
-                      : '↓'}{' '}
-                    {Math.abs(comparisons.storiesCompleted.diff)}
-                  </span>
-                  <span className="text-text-subtle font-bold uppercase tracking-wider">
-                    vs last sprint
-                  </span>
-                </div>
-              ) : (
-                <div className="text-[8px] text-text-subtler font-bold mt-1 uppercase tracking-wider">
-                  No comparison data
-                </div>
-              )}
-            </div>
-            <div className="w-14 h-7 opacity-60">
-              <AreaChart width={56} height={28} data={sparklineDone}>
-                <Area
-                  type="monotone"
-                  dataKey="val"
-                  stroke="#3B82F6"
-                  fill="rgba(59, 130, 246, 0.1)"
-                  strokeWidth={1.5}
-                  dot={false}
-                />
-              </AreaChart>
-            </div>
-          </div>
-        </div>
-
-        {/* Card 3: Avg. Cycle Time */}
-        <div className="bg-card border border-border-subtle p-3.5 flex flex-col justify-between group hover:border-border transition-all rounded-none min-h-[96px]">
-          <div className="flex justify-between items-start">
-            <span className="text-[9px] font-black uppercase tracking-widest text-text-subtle">
-              Avg. Cycle Time
-            </span>
-            <span className="text-purple-400">
-              <Clock size={12} />
-            </span>
-          </div>
-          <div className="flex items-end justify-between mt-2">
-            <div>
-              <span className="text-2xl font-black tracking-tight">
-                {cycleTime.value}{' '}
-                <span className="text-text-subtle text-xs font-normal">
-                  days
-                </span>
-              </span>
-              {comparisons?.cycleTime ? (
-                <div
-                  className={`text-[8px] font-black mt-1 flex items-center gap-0.5 ${
-                    comparisons.cycleTime.direction === 'down'
-                      ? 'text-[#10B981]'
-                      : 'text-[#EF4444]'
-                  }`}
-                >
-                  <span>
-                    {comparisons.cycleTime.direction === 'down' ? '↓' : '↑'}{' '}
-                    {Math.abs(comparisons.cycleTime.diff)} days
-                  </span>
-                  <span className="text-text-subtle font-bold uppercase tracking-wider">
-                    vs last sprint
-                  </span>
-                </div>
-              ) : (
-                <div className="text-[8px] text-text-subtler font-bold mt-1 uppercase tracking-wider">
-                  No comparison data
-                </div>
-              )}
-            </div>
-            <div className="w-14 h-7 opacity-60">
-              <AreaChart width={56} height={28} data={sparklineCycle}>
-                <Area
-                  type="monotone"
-                  dataKey="val"
-                  stroke="#EC4899"
-                  fill="rgba(236, 72, 153, 0.1)"
-                  strokeWidth={1.5}
-                  dot={false}
-                />
-              </AreaChart>
-            </div>
-          </div>
-        </div>
-
-        {/* Card 4: Deployment Frequency */}
-        <div className="bg-card border border-border-subtle p-3.5 flex flex-col justify-between group hover:border-border transition-all rounded-none min-h-[96px]">
-          <div className="flex justify-between items-start">
-            <span className="text-[9px] font-black uppercase tracking-widest text-text-subtle">
-              Deployment Freq
-            </span>
-            <span className="text-[#10B981]">
-              <Package size={12} />
-            </span>
-          </div>
-          <div className="flex items-end justify-between mt-2">
-            <div>
-              <span className="text-2xl font-black tracking-tight">
-                {deploymentFrequency.value}{' '}
-                <span className="text-text-subtle text-xs font-normal">
-                  / {deploymentFrequency.unit}
-                </span>
-              </span>
-              {comparisons?.deployCount ? (
-                <div
-                  className={`text-[8px] font-black mt-1 flex items-center gap-0.5 ${
-                    comparisons.deployCount.direction === 'up'
-                      ? 'text-[#10B981]'
-                      : 'text-[#EF4444]'
-                  }`}
-                >
-                  <span>
-                    {comparisons.deployCount.direction === 'up' ? '↑' : '↓'}{' '}
-                    {Math.abs(comparisons.deployCount.diff)}
-                  </span>
-                  <span className="text-text-subtle font-bold uppercase tracking-wider">
-                    vs last sprint
-                  </span>
-                </div>
-              ) : (
-                <div className="text-[8px] text-text-subtler font-bold mt-1 uppercase tracking-wider">
-                  No comparison data
-                </div>
-              )}
-            </div>
-            <div className="w-14 h-7 opacity-60">
-              <AreaChart width={56} height={28} data={sparklineFreq}>
-                <Area
-                  type="monotone"
-                  dataKey="val"
-                  stroke="#10B981"
-                  fill="rgba(16, 185, 129, 0.1)"
-                  strokeWidth={1.5}
-                  dot={false}
-                />
-              </AreaChart>
-            </div>
-          </div>
-        </div>
-
-        {/* Card 5: Change Failure Rate */}
-        <div className="bg-card border border-border-subtle p-3.5 flex flex-col justify-between group hover:border-border transition-all rounded-none min-h-[96px]">
-          <div className="flex justify-between items-start">
-            <span className="text-[9px] font-black uppercase tracking-widest text-text-subtle">
-              Change Failure Rate
-            </span>
-            <span className="text-yellow-500">
-              <AlertCircle size={12} />
-            </span>
-          </div>
-          <div className="flex items-end justify-between mt-2">
-            <div>
-              <span className="text-2xl font-black tracking-tight">
-                {changeFailureRate.value}%
-              </span>
-              {comparisons?.failureRate ? (
-                <div
-                  className={`text-[8px] font-black mt-1 flex items-center gap-0.5 ${
-                    comparisons.failureRate.direction === 'down'
-                      ? 'text-[#10B981]'
-                      : 'text-[#EF4444]'
-                  }`}
-                >
-                  <span>
-                    {comparisons.failureRate.direction === 'down' ? '↓' : '↑'}{' '}
-                    {Math.abs(comparisons.failureRate.diff)}%
-                  </span>
-                  <span className="text-text-subtle font-bold uppercase tracking-wider">
-                    vs last sprint
-                  </span>
-                </div>
-              ) : (
-                <div className="text-[8px] text-text-subtler font-bold mt-1 uppercase tracking-wider">
-                  No comparison data
-                </div>
-              )}
-            </div>
-            <div className="w-14 h-7 opacity-60">
-              <AreaChart width={56} height={28} data={sparklineFailure}>
-                <Area
-                  type="monotone"
-                  dataKey="val"
-                  stroke="#F59E0B"
-                  fill="rgba(245, 158, 11, 0.1)"
-                  strokeWidth={1.5}
-                  dot={false}
-                />
-              </AreaChart>
-            </div>
-          </div>
-        </div>
-
-        {/* Card 6: Code Health Score */}
-        <div className="bg-card border border-border-subtle p-3.5 flex flex-col justify-between group hover:border-border transition-all rounded-none min-h-[96px]">
-          <div className="flex justify-between items-start">
-            <span className="text-[9px] font-black uppercase tracking-widest text-text-subtle">
-              Code Health Score
-            </span>
-            <span className="text-[#8B5CF6]">
-              <Shield size={12} />
-            </span>
-          </div>
-          <div className="flex items-end justify-between mt-2">
-            <div>
-              <span className="text-2xl font-black tracking-tight">
-                {codeHealthScore}{' '}
-                <span className="text-text-subtle text-sm font-normal">
-                  / 100
-                </span>
-              </span>
-              {comparisons?.codeHealth ? (
-                <div
-                  className={`text-[8px] font-black mt-1 flex items-center gap-0.5 ${
-                    comparisons.codeHealth.direction === 'up'
-                      ? 'text-[#10B981]'
-                      : 'text-[#EF4444]'
-                  }`}
-                >
-                  <span>
-                    {comparisons.codeHealth.direction === 'up' ? '↑' : '↓'}{' '}
-                    {Math.abs(comparisons.codeHealth.diff)} pts
-                  </span>
-                  <span className="text-text-subtle font-bold uppercase tracking-wider">
-                    vs last sprint
-                  </span>
-                </div>
-              ) : (
-                <div className="text-[8px] text-text-subtler font-bold mt-1 uppercase tracking-wider">
-                  No comparison data
-                </div>
-              )}
-            </div>
-
-            {/* Circular Gauge Chart */}
-            <div className="w-10 h-10 relative flex items-center justify-center">
-              <PieChart width={40} height={40}>
-                <Pie
-                  data={[
-                    { value: codeHealthScore },
-                    { value: 100 - codeHealthScore },
-                  ]}
-                  dataKey="value"
-                  innerRadius={13}
-                  outerRadius={18}
-                  startAngle={90}
-                  endAngle={-270}
-                >
-                  <Cell fill="#10B981" />
-                  <Cell fill="rgba(255,255,255,0.05)" />
-                </Pie>
-              </PieChart>
-              <span className="absolute text-[8px] font-bold text-text leading-none">
-                {codeHealthScore}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Row 2: Work Items status, Sprint Burndown, Top Priorities */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Panel 1: Work Items Status */}
-        <div className="lg:col-span-3 bg-card border border-border-subtle p-4 flex flex-col justify-between">
-          <div>
-            <span className="text-[10px] font-black uppercase tracking-widest text-text-subtle">
-              Work Items by Status
-            </span>
-            <div className="flex items-center justify-center h-44 mt-4 relative">
-              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                <PieChart>
-                  <Pie
-                    data={workItemsChartData}
-                    dataKey="value"
-                    innerRadius={50}
-                    outerRadius={65}
-                    paddingAngle={2}
-                  >
-                    {workItemsChartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="absolute flex flex-col items-center justify-center leading-none">
-                <span className="text-2xl font-black text-text">
-                  {workItemsStatus.total}
-                </span>
-                <span className="text-[8px] uppercase tracking-wider text-text-subtle mt-1 font-bold">
-                  Total
-                </span>
-              </div>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-2 text-[9px] font-black uppercase mt-4">
-            {workItemsChartData.map((item, idx) => (
-              <div key={idx} className="flex items-center gap-1.5">
-                <span
-                  className="w-1.5 h-1.5"
-                  style={{ backgroundColor: item.color }}
-                />
-                <span className="text-text-subtle">{item.name}</span>
-                <span className="ml-auto text-text">
-                  {item.value} (
-                  {workItemsStatus.total > 0
-                    ? Math.round((item.value / workItemsStatus.total) * 100)
-                    : 0}
-                  %)
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Panel 2: Sprint Burndown */}
-        <div className="lg:col-span-6 bg-card border border-border-subtle p-4">
-          <div className="flex justify-between items-center mb-4">
-            <span className="text-[10px] font-black uppercase tracking-widest text-text-subtle">
-              Sprint Burndown
-            </span>
-            <div className="flex items-center gap-3 text-[8px] font-black uppercase tracking-wider">
-              <div className="flex items-center gap-1">
-                <span className="w-2 h-0.5 bg-gray-400 border-dashed" />
-                <span className="text-text-subtle">Ideal</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="w-2.5 h-0.5 bg-secondary" />
-                <span className="text-text">Remaining</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="w-2.5 h-0.5 bg-status-success" />
-                <span className="text-text">Completed</span>
-              </div>
-            </div>
-          </div>
-          <div className="w-full h-52">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-              <LineChart
-                data={burndownData}
-                margin={{ top: 10, right: 10, left: -25, bottom: 0 }}
-              >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="rgba(255,255,255,0.03)"
-                  vertical={false}
-                />
-                <XAxis
-                  dataKey="date"
-                  stroke="rgba(255,255,255,0.2)"
-                  tick={{ fontSize: 8 }}
-                />
-                <YAxis stroke="rgba(255,255,255,0.2)" tick={{ fontSize: 8 }} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#131622',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    fontSize: '10px',
-                  }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="ideal"
-                  stroke="rgba(255,255,255,0.25)"
-                  strokeDasharray="4 4"
-                  strokeWidth={1}
-                  dot={false}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="remaining"
-                  stroke="#8B5CF6"
-                  strokeWidth={2}
-                  dot={{ r: 2 }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="completed"
-                  stroke="#10B981"
-                  strokeWidth={2}
-                  dot={{ r: 2 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Panel 3: Top Priorities */}
-        <div className="lg:col-span-3 bg-card border border-border-subtle p-4 flex flex-col justify-between">
-          <div className="flex justify-between items-center mb-4">
-            <span className="text-[10px] font-black uppercase tracking-widest text-text-subtle">
-              Top Priorities
-            </span>
-            <button
-              onClick={() => setActiveTab('delivery')}
-              className="text-[#8B5CF6] text-[8px] font-black uppercase tracking-widest hover:underline cursor-pointer border-none bg-transparent"
-            >
-              View All
-            </button>
-          </div>
-          <div className="flex flex-col gap-3">
-            {topPriorities?.map((item, idx) => (
-              <div
-                key={idx}
-                className="p-2.5 bg-card border border-border-subtle hover:bg-background-elevated transition-all flex flex-col gap-1.5 cursor-pointer"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 truncate">
-                    <span className="text-[#8B5CF6] text-[8px] font-bold uppercase tracking-wider">
-                      {item.code}
-                    </span>
-                    <span className="text-[8px] text-text-subtle">•</span>
-                    <span className="text-[8px] text-text-subtle lowercase tracking-wide font-black">
-                      {item.tasksCount} tasks
-                    </span>
-                  </div>
-                  <span
-                    className={`text-[7px] font-black uppercase tracking-wider px-1.5 py-0.5 leading-none ${
-                      item.severity === 'High'
-                        ? 'border border-red-500/20 text-[#EF4444] bg-red-500/5'
-                        : item.severity === 'Medium'
-                          ? 'border border-yellow-500/20 text-[#F59E0B] bg-yellow-500/5'
-                          : 'border border-green-500/20 text-[#10B981] bg-green-500/5'
-                    }`}
-                  >
-                    {item.severity}
-                  </span>
-                </div>
-                <span className="text-[10px] font-bold text-text truncate lowercase tracking-wide first-letter:uppercase leading-none">
-                  {item.title}
-                </span>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <div className="flex-1 bg-background-elevated h-1 rounded-none overflow-hidden">
-                    <div
-                      className="bg-secondary h-full"
-                      style={{ width: `${item.progress}%` }}
-                    />
-                  </div>
-                  <span className="text-[8px] font-bold text-text-subtle tabular-nums">
-                    {item.progress}%
-                  </span>
-                </div>
-              </div>
-            ))}
-            {(!topPriorities || topPriorities.length === 0) && (
-              <div className="py-12 text-center text-[9px] text-text-subtler uppercase tracking-widest italic font-bold">
-                No active priorities
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Row 3: Team Velocity, Code Health Overview, PR Metrics, Recent Activity */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-6">
-        {/* Panel 1: Team Velocity */}
-        <div className="lg:col-span-3 bg-card border border-border-subtle p-4 flex flex-col justify-between">
-          <div className="flex justify-between items-center mb-4">
-            <span className="text-[10px] font-black uppercase tracking-widest text-text-subtle">
-              Team Velocity
-            </span>
-            <span className="text-[#8B5CF6] text-[8px] font-black uppercase tracking-widest hover:underline cursor-pointer">
-              View Trends
-            </span>
-          </div>
-          <div className="w-full h-44">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-              <BarChart
-                data={teamVelocity}
-                margin={{ top: 10, right: 10, left: -30, bottom: 0 }}
-              >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="rgba(255,255,255,0.03)"
-                  vertical={false}
-                />
-                <XAxis
-                  dataKey="sprint"
-                  stroke="rgba(255,255,255,0.2)"
-                  tick={{ fontSize: 7 }}
-                />
-                <YAxis stroke="rgba(255,255,255,0.2)" tick={{ fontSize: 7 }} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#131622',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    fontSize: '9px',
-                  }}
-                />
-                <Bar
-                  dataKey="completed"
-                  fill="#10B981"
-                  radius={0}
-                  maxBarSize={15}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Panel 2: Code Health Overview */}
-        <div className="lg:col-span-3 bg-card border border-border-subtle p-4 flex flex-col justify-between">
-          <div className="flex justify-between items-center mb-4">
-            <span className="text-[10px] font-black uppercase tracking-widest text-text-subtle">
-              Code Health Overview
-            </span>
-            <button
-              onClick={() => setActiveTab('quality')}
-              className="text-[#8B5CF6] text-[8px] font-black uppercase tracking-widest hover:underline cursor-pointer border-none bg-transparent"
-            >
-              View Details
-            </button>
-          </div>
-          <div className="flex flex-col gap-1 mt-1 justify-center flex-1">
-            <div className="flex items-center justify-between p-2.5 border-b border-border-subtle">
-              <div className="flex items-center gap-2">
-                <Target size={13} className="text-[#10B981]" />
-                <span className="text-[10px] font-bold text-gray-300">
-                  Code Coverage
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-black text-text">
-                  {codeHealthOverview.coverage}%
-                </span>
-                {comparisons?.coverage ? (
-                  <span
-                    className={`text-[8px] font-black ${comparisons.coverage.direction === 'up' ? 'text-[#10B981]' : 'text-[#EF4444]'}`}
-                  >
-                    {comparisons.coverage.direction === 'up' ? '↑' : '↓'}{' '}
-                    {Math.abs(comparisons.coverage.diff)}%
-                  </span>
-                ) : (
-                  <span className="text-[8px] text-text-subtler font-bold">
-                    --
-                  </span>
                 )}
               </div>
-            </div>
-            <div className="flex items-center justify-between p-2.5 border-b border-border-subtle">
-              <div className="flex items-center gap-2">
-                <Bug size={13} className="text-yellow-500" />
-                <span className="text-[10px] font-bold text-gray-300">
-                  ESLint Issues
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-black text-text">
-                  {codeHealthOverview.eslint}
-                </span>
-                {comparisons?.eslint ? (
-                  <span
-                    className={`text-[8px] font-black ${comparisons.eslint.direction === 'down' ? 'text-[#10B981]' : 'text-[#EF4444]'}`}
-                  >
-                    {comparisons.eslint.direction === 'down' ? '↓' : '↑'}{' '}
-                    {Math.abs(comparisons.eslint.diff)}
-                  </span>
-                ) : (
-                  <span className="text-[8px] text-text-subtler font-bold">
-                    --
-                  </span>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center justify-between p-2.5 border-b border-border-subtle">
-              <div className="flex items-center gap-2">
-                <Shield size={13} className="text-[#EF4444]" />
-                <span className="text-[10px] font-bold text-gray-300">
-                  Security Issues
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-black text-text">
-                  {codeHealthOverview.security}
-                </span>
-                {comparisons?.security ? (
-                  <span
-                    className={`text-[8px] font-black ${comparisons.security.direction === 'down' ? 'text-[#10B981]' : 'text-[#EF4444]'}`}
-                  >
-                    {comparisons.security.direction === 'down' ? '↓' : '↑'}{' '}
-                    {Math.abs(comparisons.security.diff)}
-                  </span>
-                ) : (
-                  <span className="text-[8px] text-text-subtler font-bold">
-                    --
-                  </span>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center justify-between p-2.5">
-              <div className="flex items-center gap-2">
-                <BarChart3 size={13} className="text-[#8B5CF6]" />
-                <span className="text-[10px] font-bold text-gray-300">
-                  Technical Debt
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-black text-text">
-                  {codeHealthOverview.debtDays} days
-                </span>
-                {comparisons?.debtDays ? (
-                  <span
-                    className={`text-[8px] font-black ${comparisons.debtDays.direction === 'down' ? 'text-[#10B981]' : 'text-[#EF4444]'}`}
-                  >
-                    {comparisons.debtDays.direction === 'down' ? '↓' : '↑'}{' '}
-                    {Math.abs(comparisons.debtDays.diff)}
-                  </span>
-                ) : (
-                  <span className="text-[8px] text-text-subtler font-bold">
-                    --
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Panel 3: Pull Request Metrics */}
-        <div className="lg:col-span-3 bg-card border border-border-subtle p-4 flex flex-col justify-between">
-          <div className="flex justify-between items-center mb-4">
-            <span className="text-[10px] font-black uppercase tracking-widest text-text-subtle">
-              Pull Request Metrics
-            </span>
-            <button
-              onClick={() => setActiveTab('code')}
-              className="text-[#8B5CF6] text-[8px] font-black uppercase tracking-widest hover:underline cursor-pointer border-none bg-transparent"
-            >
-              View All
-            </button>
-          </div>
-          <div className="flex flex-col gap-2 mt-1 justify-center flex-1">
-            <div className="flex items-center justify-between py-1 border-b border-border-subtle">
-              <div>
-                <span className="text-[8px] uppercase font-bold text-text-subtle block">
-                  Median PR Cycle Time
-                </span>
-                <span className="text-[13px] font-black text-text mt-0.5 block">
-                  {pullRequestMetrics.prCycleTime}
-                </span>
-              </div>
-              <div className="text-right">
-                {prComparisons?.cycleTime ? (
-                  <span
-                    className={`text-[8px] font-black block ${prComparisons.cycleTime.direction === 'down' ? 'text-[#10B981]' : 'text-[#EF4444]'}`}
-                  >
-                    {prComparisons.cycleTime.direction === 'down' ? '↓' : '↑'}{' '}
-                    {Math.abs(prComparisons.cycleTime.diff)}h
-                  </span>
-                ) : (
-                  <span className="text-[8px] text-text-subtler font-bold block">
-                    --
-                  </span>
-                )}
-                <div className="w-12 h-4 opacity-50 mt-1">
-                  <AreaChart
-                    width={48}
-                    height={16}
-                    data={pullRequestMetrics.prCycleTimeHistory || []}
-                  >
-                    <Area
-                      type="monotone"
-                      dataKey="val"
-                      stroke="#8B5CF6"
-                      fill="rgba(139, 92, 246, 0.1)"
-                      strokeWidth={1}
-                      dot={false}
-                    />
-                  </AreaChart>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center justify-between py-1 border-b border-border-subtle">
-              <div>
-                <span className="text-[8px] uppercase font-bold text-text-subtle block">
-                  PRs Merged
-                </span>
-                <span className="text-[13px] font-black text-text mt-0.5 block">
-                  {pullRequestMetrics.prsMerged}
-                </span>
-              </div>
-              <div className="text-right">
-                {prComparisons?.mergedCount ? (
-                  <span
-                    className={`text-[8px] font-black block ${prComparisons.mergedCount.direction === 'up' ? 'text-[#10B981]' : 'text-[#EF4444]'}`}
-                  >
-                    {prComparisons.mergedCount.direction === 'up' ? '↑' : '↓'}{' '}
-                    {Math.abs(prComparisons.mergedCount.diff)}
-                  </span>
-                ) : (
-                  <span className="text-[8px] text-text-subtler font-bold block">
-                    --
-                  </span>
-                )}
-                <div className="w-12 h-4 opacity-50 mt-1">
-                  <AreaChart
-                    width={48}
-                    height={16}
-                    data={pullRequestMetrics.prsMergedHistory || []}
-                  >
-                    <Area
-                      type="monotone"
-                      dataKey="val"
-                      stroke="#10B981"
-                      fill="rgba(16, 185, 129, 0.1)"
-                      strokeWidth={1}
-                      dot={false}
-                    />
-                  </AreaChart>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center justify-between py-1">
-              <div>
-                <span className="text-[8px] uppercase font-bold text-text-subtle block">
-                  Review Time (Avg.)
-                </span>
-                <span className="text-[13px] font-black text-text mt-0.5 block">
-                  {pullRequestMetrics.reviewTime}
-                </span>
-              </div>
-              <div className="text-right">
-                {prComparisons?.reviewTime ? (
-                  <span
-                    className={`text-[8px] font-black block ${prComparisons.reviewTime.direction === 'down' ? 'text-[#10B981]' : 'text-[#EF4444]'}`}
-                  >
-                    {prComparisons.reviewTime.direction === 'down' ? '↓' : '↑'}{' '}
-                    {Math.abs(prComparisons.reviewTime.diff)}h
-                  </span>
-                ) : (
-                  <span className="text-[8px] text-text-subtler font-bold block">
-                    --
-                  </span>
-                )}
-                <div className="w-12 h-4 opacity-50 mt-1">
-                  <AreaChart
-                    width={48}
-                    height={16}
-                    data={pullRequestMetrics.prReviewTimeHistory || []}
-                  >
-                    <Area
-                      type="monotone"
-                      dataKey="val"
-                      stroke="#3B82F6"
-                      fill="rgba(59, 130, 246, 0.1)"
-                      strokeWidth={1}
-                      dot={false}
-                    />
-                  </AreaChart>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Panel 4: Recent Activity */}
-        <div className="lg:col-span-3 bg-card border border-border-subtle p-4 flex flex-col justify-between">
-          <div className="flex justify-between items-center mb-4">
-            <span className="text-[10px] font-black uppercase tracking-widest text-text-subtle">
-              Recent Activity
-            </span>
-            <button
-              onClick={() => setActiveTab('code')}
-              className="text-[#8B5CF6] text-[8px] font-black uppercase tracking-widest hover:underline cursor-pointer border-none bg-transparent"
-            >
-              View All
-            </button>
-          </div>
-          <div className="flex flex-col gap-2.5 overflow-hidden flex-1 justify-center">
-            {recentActivity?.map((activity, idx) => (
-              <div key={idx} className="flex items-start gap-2.5 text-[9px]">
-                <div className="mt-0.5">
-                  {activity.type === 'pr_merge' && (
-                    <GitPullRequest size={11} className="text-[#10B981]" />
-                  )}
-                  {activity.type === 'deploy' && (
-                    <Package size={11} className="text-blue-400" />
-                  )}
-                  {activity.type === 'pr_open' && (
-                    <GitBranch size={11} className="text-[#8B5CF6]" />
-                  )}
-                  {activity.type === 'build_fail' && (
-                    <XCircle size={11} className="text-[#EF4444]" />
-                  )}
-                  {activity.type === 'commit' && (
-                    <Activity size={11} className="text-text-subtle" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <span className="text-text font-bold truncate tracking-wide">
-                      {activity.title}
-                    </span>
-                    <span className="text-text-subtler font-bold text-[8px] tracking-normal">
-                      {activity.time}
-                    </span>
-                  </div>
-                  <p className="text-text-subtle lowercase tracking-wide font-medium mt-0.5 truncate">
-                    {activity.desc}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Row 4: Dependencies, Team Workload, AI Insights, Deadlines */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Panel 1: Cross-team Dependencies */}
-        <div className="lg:col-span-4 bg-card border border-border-subtle p-4 flex flex-col justify-between">
-          <div className="flex justify-between items-center mb-4">
-            <span className="text-[10px] font-black uppercase tracking-widest text-text-subtle">
-              Cross-team Dependencies
-            </span>
-            <button
-              onClick={() => setActiveTab('dependencies')}
-              className="text-[#8B5CF6] text-[8px] font-black uppercase tracking-widest hover:underline cursor-pointer border-none bg-transparent"
-            >
-              View Graph
-            </button>
-          </div>
-          <div className="flex flex-col gap-3 py-1 flex-1 justify-center">
-            {crossTeamDependencies && crossTeamDependencies.length > 0 ? (
-              crossTeamDependencies.map((dep, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center justify-between bg-card border border-border-subtle p-2 rounded-none hover:bg-background-elevated"
-                >
-                  <div className="flex flex-col gap-0.5 truncate">
-                    <span className="text-[9px] font-black text-text uppercase tracking-wider">
-                      {dep.source}
-                    </span>
-                    <span className="text-[7px] text-text-subtler uppercase tracking-widest">
-                      {dep.sourceTeam}
-                    </span>
-                  </div>
-                  <ArrowRight size={12} className="text-text-subtle" />
-                  <div className="flex flex-col gap-0.5 truncate">
-                    <span className="text-[9px] font-black text-text uppercase tracking-wider">
-                      {dep.target}
-                    </span>
-                    <span className="text-[7px] text-text-subtler uppercase tracking-widest">
-                      {dep.targetTeam}
-                    </span>
-                  </div>
-                  <span
-                    className={`text-[7px] font-black px-1.5 py-0.5 uppercase tracking-wider ${
-                      dep.status === 'On Track'
-                        ? 'bg-green-500/10 border border-green-500/20 text-[#10B981]'
-                        : dep.status === 'At Risk'
-                          ? 'bg-yellow-500/10 border border-yellow-500/20 text-yellow-500'
-                          : 'bg-red-500/10 border border-red-500/20 text-[#EF4444]'
-                    }`}
-                  >
-                    {dep.status}
-                  </span>
-                </div>
-              ))
-            ) : (
-              <div className="py-12 text-center text-[9px] text-text-subtler uppercase tracking-widest italic font-bold">
-                No cross-team dependencies
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Panel 2: Team Workload */}
-        <div className="lg:col-span-3 bg-card border border-border-subtle p-4 flex flex-col justify-between">
-          <div className="flex justify-between items-center mb-4">
-            <span className="text-[10px] font-black uppercase tracking-widest text-text-subtle">
-              Team Workload
-            </span>
-            <button
-              onClick={() => setActiveTab('team')}
-              className="text-[#8B5CF6] text-[8px] font-black uppercase tracking-widest hover:underline cursor-pointer border-none bg-transparent"
-            >
-              View Capacity
-            </button>
-          </div>
-          <div className="flex flex-col gap-2.5 py-1 flex-1 justify-center">
-            {teamWorkload?.slice(0, 5)?.map((user, idx) => (
-              <div key={idx} className="flex flex-col gap-1">
-                <div className="flex items-center justify-between text-[9px] font-black uppercase">
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-4 h-4 rounded-full bg-background-elevated border border-border flex items-center justify-center font-bold text-[7px] text-text">
-                      {user.member?.[0] || ''}
-                    </div>
-                    <span className="text-text truncate max-w-[100px]">
-                      {user.member}
-                    </span>
-                  </div>
-                  <span
-                    className={`${
-                      user.status === 'Overallocated'
-                        ? 'text-[#EF4444]'
-                        : user.status === 'Committed'
-                          ? 'text-yellow-500'
-                          : 'text-[#10B981]'
-                    }`}
-                  >
-                    {user.load}%
-                  </span>
-                </div>
-                {/* Workload bar */}
-                <div className="w-full bg-background-elevated h-1.5 rounded-none overflow-hidden">
+              {sprintProgress > 0 ? (
+                <div className="w-full bg-background-elevated h-1.5 rounded-full mt-2.5 overflow-hidden">
                   <div
-                    className={`h-full ${
-                      user.status === 'Overallocated'
-                        ? 'bg-status-error'
-                        : user.status === 'Committed'
-                          ? 'bg-yellow-500'
-                          : 'bg-status-success'
-                    }`}
-                    style={{ width: `${user.load}%` }}
+                    className="bg-primary h-full rounded-full transition-all duration-300"
+                    style={{ width: `${Math.min(100, sprintProgress)}%` }}
                   />
                 </div>
+              ) : (
+                <span className="text-[11px] text-text-subtler mt-2.5 block truncate">
+                  No active progress
+                </span>
+              )}
+            </div>
+
+            {/* KPI 2: Stories Completed */}
+            <div className="flex flex-col justify-between sm:px-3.5 pt-2 sm:pt-0">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-medium text-text-subtle truncate">
+                  Stories Completed
+                </span>
+                <ShieldCheck size={14} className="text-text-subtle shrink-0" />
               </div>
-            ))}
+              <div className="flex items-baseline justify-between mt-1">
+                <div>
+                  <span className="text-2xl font-bold tracking-tight text-text">
+                    {storiesCompleted.completed}
+                  </span>
+                  <span className="text-xs text-text-subtle ml-1 font-normal">
+                    / {storiesCompleted.total}
+                  </span>
+                </div>
+                {comparisons?.storiesCompleted && (
+                  <span
+                    className={`text-[11px] font-medium ${
+                      comparisons.storiesCompleted.direction === 'up'
+                        ? 'text-status-success'
+                        : 'text-status-error'
+                    }`}
+                  >
+                    {comparisons.storiesCompleted.direction === 'up' ? '↑' : '↓'}
+                    {Math.abs(comparisons.storiesCompleted.diff)}
+                  </span>
+                )}
+              </div>
+              <div className="w-full h-5 mt-2 flex items-center justify-end opacity-70">
+                {sparklineDone && sparklineDone.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={sparklineDone}>
+                      <Area
+                        type="monotone"
+                        dataKey="val"
+                        stroke="var(--color-primary)"
+                        fill="var(--color-primary)"
+                        fillOpacity={0.15}
+                        strokeWidth={1.5}
+                        dot={false}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <span className="text-[11px] text-text-subtler truncate">Sprint stories</span>
+                )}
+              </div>
+            </div>
+
+            {/* KPI 3: Avg. Cycle Time */}
+            <div className="flex flex-col justify-between sm:px-3.5 pt-2 sm:pt-0">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-medium text-text-subtle truncate">
+                  Avg. Cycle Time
+                </span>
+                <Clock size={14} className="text-text-subtle shrink-0" />
+              </div>
+              <div className="flex items-baseline justify-between mt-1">
+                <div>
+                  <span className="text-2xl font-bold tracking-tight text-text">
+                    {cycleTime.value > 0 ? cycleTime.value : 'N/A'}
+                  </span>
+                  {cycleTime.value > 0 && (
+                    <span className="text-xs text-text-subtle ml-1 font-normal">
+                      {cycleTime.unit || 'days'}
+                    </span>
+                  )}
+                </div>
+                {comparisons?.cycleTime && (
+                  <span
+                    className={`text-[11px] font-medium ${
+                      comparisons.cycleTime.direction === 'down'
+                        ? 'text-status-success'
+                        : 'text-status-error'
+                    }`}
+                  >
+                    {comparisons.cycleTime.direction === 'down' ? '↓' : '↑'}
+                    {Math.abs(comparisons.cycleTime.diff)}d
+                  </span>
+                )}
+              </div>
+              <div className="w-full h-5 mt-2 flex items-center justify-end opacity-70">
+                {sparklineCycle && sparklineCycle.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={sparklineCycle}>
+                      <Area
+                        type="monotone"
+                        dataKey="val"
+                        stroke="#8B5CF6"
+                        fill="#8B5CF6"
+                        fillOpacity={0.15}
+                        strokeWidth={1.5}
+                        dot={false}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <span className="text-[11px] text-text-subtler truncate">Delivery pace</span>
+                )}
+              </div>
+            </div>
+
+            {/* KPI 4: Deployment Frequency */}
+            <div className="flex flex-col justify-between sm:px-3.5 pt-2 sm:pt-0">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-medium text-text-subtle truncate">
+                  Deployment Freq
+                </span>
+                <Package size={14} className="text-text-subtle shrink-0" />
+              </div>
+              <div className="flex items-baseline justify-between mt-1">
+                <div>
+                  <span className="text-2xl font-bold tracking-tight text-text">
+                    {deploymentFrequency.value}
+                  </span>
+                  <span className="text-xs text-text-subtle ml-1 font-normal">
+                    / {deploymentFrequency.unit || 'wk'}
+                  </span>
+                </div>
+                {comparisons?.deployCount && (
+                  <span
+                    className={`text-[11px] font-medium ${
+                      comparisons.deployCount.direction === 'up'
+                        ? 'text-status-success'
+                        : 'text-status-error'
+                    }`}
+                  >
+                    {comparisons.deployCount.direction === 'up' ? '↑' : '↓'}
+                    {Math.abs(comparisons.deployCount.diff)}
+                  </span>
+                )}
+              </div>
+              <div className="w-full h-5 mt-2 flex items-center justify-end opacity-70">
+                {sparklineFreq && sparklineFreq.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={sparklineFreq}>
+                      <Area
+                        type="monotone"
+                        dataKey="val"
+                        stroke="#10B981"
+                        fill="#10B981"
+                        fillOpacity={0.15}
+                        strokeWidth={1.5}
+                        dot={false}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <span className="text-[11px] text-text-subtler truncate">Deploy cadence</span>
+                )}
+              </div>
+            </div>
+
+            {/* KPI 5: Change Failure Rate */}
+            <div className="flex flex-col justify-between sm:px-3.5 pt-2 sm:pt-0">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-medium text-text-subtle truncate">
+                  Change Failure Rate
+                </span>
+                <AlertCircle size={14} className="text-text-subtle shrink-0" />
+              </div>
+              <div className="flex items-baseline justify-between mt-1">
+                <span className="text-2xl font-bold tracking-tight text-text">
+                  {changeFailureRate.value}%
+                </span>
+                {comparisons?.failureRate && (
+                  <span
+                    className={`text-[11px] font-medium ${
+                      comparisons.failureRate.direction === 'down'
+                        ? 'text-status-success'
+                        : 'text-status-error'
+                    }`}
+                  >
+                    {comparisons.failureRate.direction === 'down' ? '↓' : '↑'}
+                    {Math.abs(comparisons.failureRate.diff)}%
+                  </span>
+                )}
+              </div>
+              <div className="w-full h-5 mt-2 flex items-center justify-end opacity-70">
+                {sparklineFailure && sparklineFailure.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={sparklineFailure}>
+                      <Area
+                        type="monotone"
+                        dataKey="val"
+                        stroke="#F59E0B"
+                        fill="#F59E0B"
+                        fillOpacity={0.15}
+                        strokeWidth={1.5}
+                        dot={false}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <span className="text-[11px] text-text-subtler truncate">Release stability</span>
+                )}
+              </div>
+            </div>
+
+            {/* KPI 6: Code Health Score */}
+            <div className="flex flex-col justify-between sm:px-3.5 last:sm:pr-0 pt-2 sm:pt-0">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-medium text-text-subtle truncate">
+                  Code Health Score
+                </span>
+                <Shield size={14} className="text-text-subtle shrink-0" />
+              </div>
+              <div className="flex items-baseline justify-between mt-1">
+                {hasCodeHealthData ? (
+                  <>
+                    <div>
+                      <span className="text-2xl font-bold tracking-tight text-text">
+                        {codeHealthScore}
+                      </span>
+                      <span className="text-xs text-text-subtle ml-1 font-normal">
+                        / 100
+                      </span>
+                    </div>
+                    <div className="w-6 h-6 relative flex items-center justify-center shrink-0">
+                      <PieChart width={24} height={24}>
+                        <Pie
+                          data={[
+                            { value: codeHealthScore },
+                            { value: Math.max(0, 100 - codeHealthScore) },
+                          ]}
+                          dataKey="value"
+                          innerRadius={8}
+                          outerRadius={11}
+                          startAngle={90}
+                          endAngle={-270}
+                        >
+                          <Cell fill="#10B981" />
+                          <Cell fill="var(--color-border-subtle)" />
+                        </Pie>
+                      </PieChart>
+                    </div>
+                  </>
+                ) : (
+                  <div>
+                    <span className="text-2xl font-bold tracking-tight text-text">
+                      N/A
+                    </span>
+                    <span className="text-[11px] text-text-subtler ml-1.5 font-normal">
+                      No baseline
+                    </span>
+                  </div>
+                )}
+              </div>
+              <span className="text-[11px] text-text-subtler mt-2 block truncate">
+                {hasCodeHealthData ? 'Quality telemetry' : 'Requires telemetry'}
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* =========================================================================
+          GROUP 2: SPRINT EXECUTION (Daily tasks & active sprint delivery)
+          ========================================================================= */}
+      <section aria-label="Sprint Execution" className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-text tracking-tight">
+              Sprint Execution
+            </h2>
+            <p className="text-xs text-text-subtle">
+              Active priorities, status distribution, and burndown trajectory
+            </p>
           </div>
         </div>
 
-        {/* Panel 3: AI Recommendations */}
-        <div className="lg:col-span-3 bg-card border border-border-subtle p-4 flex flex-col justify-between">
-          <div className="flex justify-between items-center mb-4">
-            <span className="text-[10px] font-black uppercase tracking-widest text-text-subtle">
-              AI Insights & Recommendations
-            </span>
-            <button
-              onClick={() => setActiveTab('insights')}
-              className="text-[#8B5CF6] text-[8px] font-black uppercase tracking-widest hover:underline cursor-pointer border-none bg-transparent"
-            >
-              View All
-            </button>
-          </div>
-          <div className="flex flex-col gap-2 flex-1 justify-center">
-            {aiInsights?.map((insight, idx) => (
-              <div
-                key={idx}
-                className="bg-card border border-border-subtle p-2 rounded-none flex items-center justify-between hover:bg-card"
-              >
-                <div className="flex flex-col gap-0.5 pr-2 truncate">
-                  <span className="text-[8px] font-black uppercase text-text truncate tracking-wider leading-none">
-                    {insight.title}
-                  </span>
-                  <span className="text-[7px] text-text-subtle font-semibold lowercase tracking-wide truncate">
-                    {insight.desc}
-                  </span>
-                </div>
-                <button
-                  className={`text-[7px] font-black uppercase px-2 py-0.5 rounded-none border leading-none ${
-                    insight.action === 'Positive'
-                      ? 'text-[#10B981] border-green-500/20 bg-green-500/5'
-                      : insight.action === 'Review'
-                        ? 'text-yellow-500 border-yellow-500/20 bg-yellow-500/5'
-                        : 'text-[#8B5CF6] border-purple-500/20 bg-purple-500/5'
-                  }`}
-                >
-                  {insight.action}
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          {/* Card 1: Work Items Status (lg:col-span-3) */}
+          <div className="lg:col-span-3 bg-card border border-border-subtle p-4 sm:p-5 rounded-xl shadow-xs flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-semibold text-text">
+                Work Items by Status
+              </h3>
+              <span className="text-xs font-medium text-text-subtle">
+                Total: {workItemsStatus.total ?? 0}
+              </span>
+            </div>
 
-        {/* Panel 4: Upcoming Deadlines */}
-        <div className="lg:col-span-2 bg-card border border-border-subtle p-4 flex flex-col justify-between">
-          <div className="flex justify-between items-center mb-4">
-            <span className="text-[10px] font-black uppercase tracking-widest text-text-subtle">
-              Upcoming Deadlines
-            </span>
-          </div>
-          <div className="flex flex-col gap-3 py-1 flex-1 justify-center">
-            {upcomingDeadlines?.map((deadline, idx) => (
-              <div
-                key={idx}
-                className="flex items-center justify-between text-[9px] font-black"
-              >
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-text uppercase tracking-wider">
-                    {deadline.title}
-                  </span>
-                  <span className="text-[7px] text-text-subtler font-bold">
-                    {deadline.date}
-                  </span>
+            <div className="flex items-center justify-center h-36 my-1 relative">
+              {activeChartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                  <PieChart>
+                    <Pie
+                      data={activeChartData}
+                      dataKey="value"
+                      innerRadius={38}
+                      outerRadius={50}
+                      paddingAngle={3}
+                    >
+                      {activeChartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="w-20 h-20 rounded-full border border-dashed border-border-subtle flex items-center justify-center text-xs text-text-subtle">
+                  No items
                 </div>
-                <span
-                  className={`text-[8px] font-black text-right ${
-                    deadline.daysLeft <= 5
-                      ? 'text-[#EF4444]'
-                      : deadline.daysLeft <= 8
-                        ? 'text-yellow-500'
-                        : 'text-[#10B981]'
-                  }`}
-                >
-                  {deadline.daysLeft} days left
+              )}
+              <div className="absolute flex flex-col items-center justify-center leading-none pointer-events-none">
+                <span className="text-lg font-bold text-text">
+                  {workItemsStatus.total ?? 0}
+                </span>
+                <span className="text-[10px] text-text-subtle mt-0.5 font-medium">
+                  Items
                 </span>
               </div>
-            ))}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-xs pt-3 border-t border-border-subtle/60">
+              {computedChartData.map((item, idx) => (
+                <div key={idx} className="flex items-center gap-1.5">
+                  <span
+                    className="w-2 h-2 rounded-full shrink-0"
+                    style={{ backgroundColor: item.color }}
+                  />
+                  <span className="text-text-subtle truncate">{item.name}</span>
+                  <span className="ml-auto font-medium text-text">
+                    {item.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Card 2: Sprint Burndown (lg:col-span-4) */}
+          <div className="lg:col-span-4 bg-card border border-border-subtle p-4 sm:p-5 rounded-xl shadow-xs flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-semibold text-text">
+                Sprint Burndown
+              </h3>
+              {hasBurndownData ? (
+                <div className="flex items-center gap-2.5 text-[11px] text-text-subtle">
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-0.5 bg-gray-400" /> Ideal
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-0.5 bg-secondary" /> Remaining
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-0.5 bg-status-success" /> Completed
+                  </span>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setActiveTab?.('delivery')}
+                  className="text-primary text-xs font-medium hover:underline cursor-pointer bg-transparent border-none"
+                >
+                  Delivery tab →
+                </button>
+              )}
+            </div>
+
+            <div className="w-full h-44 flex items-center justify-center">
+              {hasBurndownData ? (
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                  <LineChart
+                    data={burndownData}
+                    margin={{ top: 8, right: 8, left: -25, bottom: 0 }}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="var(--color-border-subtler)"
+                      vertical={false}
+                    />
+                    <XAxis
+                      dataKey="date"
+                      stroke="var(--color-border-subtle)"
+                      tick={{ fontSize: 9 }}
+                    />
+                    <YAxis
+                      stroke="var(--color-border-subtle)"
+                      tick={{ fontSize: 9 }}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'var(--color-card)',
+                        border: '1px solid var(--color-border-subtle)',
+                        borderRadius: '8px',
+                        fontSize: '11px',
+                      }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="ideal"
+                      stroke="var(--color-border-subtle)"
+                      strokeDasharray="4 4"
+                      strokeWidth={1}
+                      dot={false}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="remaining"
+                      stroke="var(--color-secondary)"
+                      strokeWidth={2}
+                      dot={{ r: 2 }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="completed"
+                      stroke="var(--color-status-success)"
+                      strokeWidth={2}
+                      dot={{ r: 2 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="text-center p-4 text-xs text-text-subtle max-w-xs leading-relaxed">
+                  <Activity size={20} className="mx-auto mb-2 text-text-subtler" />
+                  Sprint burndown trend will populate as sprint tasks are completed.
+                </div>
+              )}
+            </div>
+
+            <div className="pt-2.5 border-t border-border-subtle/60 flex justify-end items-center">
+              <button
+                onClick={() => setActiveTab?.('delivery')}
+                className="text-primary hover:underline cursor-pointer bg-transparent border-none text-xs font-medium"
+              >
+                View burndown details →
+              </button>
+            </div>
+          </div>
+
+          {/* Card 3: Top Priorities (lg:col-span-5 - Prominent actionable list) */}
+          <div className="lg:col-span-5 bg-card border border-border-subtle p-4 sm:p-5 rounded-xl shadow-xs flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <h3 className="text-xs font-semibold text-text">
+                  Top Priorities
+                </h3>
+                <span className="text-[10px] font-semibold bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                  Active
+                </span>
+              </div>
+              <button
+                onClick={() => setActiveTab?.('delivery')}
+                className="text-primary text-xs font-medium hover:underline cursor-pointer bg-transparent border-none"
+              >
+                View all
+              </button>
+            </div>
+
+            <div className="divide-y divide-border-subtle/50 flex-1 flex flex-col justify-center">
+              {topPriorities && topPriorities.length > 0 ? (
+                topPriorities.slice(0, 3).map((item, idx) => (
+                  <div
+                    key={item.id || idx}
+                    className="py-2.5 first:pt-1 last:pb-1 flex flex-col gap-1.5 hover:bg-background-elevated/40 px-2 rounded-lg transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-xs font-semibold text-text leading-snug truncate flex-1">
+                        {item.title}
+                      </span>
+                      <span
+                        className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${
+                          item.severity === 'Critical' || item.priority === 'critical'
+                            ? 'bg-status-error/10 text-status-error'
+                            : 'bg-status-warning/10 text-status-warning'
+                        }`}
+                      >
+                        {item.severity || item.priority || 'High'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 bg-background-elevated h-1.5 rounded-full overflow-hidden border border-border-subtle/40">
+                        <div
+                          className="bg-primary h-full rounded-full transition-all duration-300"
+                          style={{ width: `${item.progress || 0}%` }}
+                        />
+                      </div>
+                      <span className="text-[11px] text-text-subtle font-medium shrink-0">
+                        {item.progress || 0}%
+                      </span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="py-8 text-center text-xs text-text-subtle">
+                  No active priorities logged
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      </section>
+
+      {/* =========================================================================
+          GROUP 3: ENGINEERING PERFORMANCE (Quality, Velocity, Code telemetry)
+          ========================================================================= */}
+      <section aria-label="Engineering Performance" className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-text tracking-tight">
+              Engineering Performance
+            </h2>
+            <p className="text-xs text-text-subtle">
+              Velocity trends, automated repository health, PR metrics, and commit activity
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          {/* Card 1: Team Velocity (Bar Chart) */}
+          <div className="bg-card border border-border-subtle p-4 rounded-xl shadow-xs flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-semibold text-text">
+                Team Velocity
+              </h3>
+              <button
+                onClick={() => setActiveTab?.('delivery')}
+                className="text-primary text-xs font-medium hover:underline cursor-pointer bg-transparent border-none"
+              >
+                Delivery report →
+              </button>
+            </div>
+
+            <div className="w-full h-36 flex items-center justify-center">
+              {teamVelocity && teamVelocity.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                  <BarChart
+                    data={teamVelocity}
+                    margin={{ top: 6, right: 6, left: -25, bottom: 0 }}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="var(--color-border-subtler)"
+                      vertical={false}
+                    />
+                    <XAxis
+                      dataKey="sprint"
+                      stroke="var(--color-border-subtle)"
+                      tick={{ fontSize: 9 }}
+                    />
+                    <YAxis
+                      stroke="var(--color-border-subtle)"
+                      tick={{ fontSize: 9 }}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'var(--color-card)',
+                        border: '1px solid var(--color-border-subtle)',
+                        borderRadius: '8px',
+                        fontSize: '11px',
+                      }}
+                    />
+                    <Bar
+                      dataKey="completed"
+                      fill="var(--color-status-success)"
+                      radius={[4, 4, 0, 0]}
+                      maxBarSize={16}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="text-xs text-text-subtle text-center py-6">
+                  No velocity history available
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Card 2: Pull Request Metrics (Clean flat data rows with sparklines) */}
+          <div className="bg-card border border-border-subtle p-4 rounded-xl shadow-xs flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-semibold text-text">
+                Pull Request Metrics
+              </h3>
+              <button
+                onClick={() => setActiveTab?.('code')}
+                className="text-primary text-xs font-medium hover:underline cursor-pointer border-none bg-transparent"
+              >
+                Code tab →
+              </button>
+            </div>
+
+            <div className="divide-y divide-border-subtle/50 flex flex-col justify-center flex-1">
+              <div className="py-2 flex items-center justify-between">
+                <div>
+                  <span className="text-text-subtle text-[11px] block">
+                    Median PR Cycle Time
+                  </span>
+                  <span className="text-sm font-bold text-text mt-0.5 block">
+                    {pullRequestMetrics.prCycleTime || 'N/A'}
+                  </span>
+                </div>
+                <div className="w-12 h-5 opacity-70">
+                  {pullRequestMetrics.prCycleTimeHistory && pullRequestMetrics.prCycleTimeHistory.length > 0 && (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={pullRequestMetrics.prCycleTimeHistory}>
+                        <Area
+                          type="monotone"
+                          dataKey="val"
+                          stroke="var(--color-primary)"
+                          fill="var(--color-primary)"
+                          fillOpacity={0.15}
+                          strokeWidth={1}
+                          dot={false}
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
+              </div>
+
+              <div className="py-2 flex items-center justify-between">
+                <div>
+                  <span className="text-text-subtle text-[11px] block">
+                    PRs Merged (Sprint)
+                  </span>
+                  <span className="text-sm font-bold text-status-success mt-0.5 block">
+                    {pullRequestMetrics.prsMerged ?? 0}
+                  </span>
+                </div>
+                <div className="w-12 h-5 opacity-70">
+                  {pullRequestMetrics.prsMergedHistory && pullRequestMetrics.prsMergedHistory.length > 0 && (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={pullRequestMetrics.prsMergedHistory}>
+                        <Area
+                          type="monotone"
+                          dataKey="val"
+                          stroke="#10B981"
+                          fill="#10B981"
+                          fillOpacity={0.15}
+                          strokeWidth={1}
+                          dot={false}
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
+              </div>
+
+              <div className="py-2 flex items-center justify-between">
+                <div>
+                  <span className="text-text-subtle text-[11px] block">
+                    Average Review Time
+                  </span>
+                  <span className="text-sm font-bold text-text mt-0.5 block">
+                    {pullRequestMetrics.reviewTime && pullRequestMetrics.reviewTime !== '0h'
+                      ? pullRequestMetrics.reviewTime
+                      : 'N/A'}
+                  </span>
+                </div>
+                <div className="w-12 h-5 opacity-70">
+                  {pullRequestMetrics.prReviewTimeHistory && pullRequestMetrics.prReviewTimeHistory.length > 0 && (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={pullRequestMetrics.prReviewTimeHistory}>
+                        <Area
+                          type="monotone"
+                          dataKey="val"
+                          stroke="#8B5CF6"
+                          fill="#8B5CF6"
+                          fillOpacity={0.15}
+                          strokeWidth={1}
+                          dot={false}
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 4: Recent Activity (Clean commit feed) */}
+          <div className="bg-card border border-border-subtle p-4 rounded-xl shadow-xs flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-semibold text-text">
+                Recent Activity
+              </h3>
+              <button
+                onClick={() => setActiveTab?.('code')}
+                className="text-primary text-xs font-medium hover:underline cursor-pointer border-none bg-transparent"
+              >
+                Code tab →
+              </button>
+            </div>
+
+            <div className="divide-y divide-border-subtle/50 flex flex-col justify-center flex-1">
+              {recentActivity && recentActivity.length > 0 ? (
+                recentActivity.slice(0, 3).map((act, idx) => (
+                  <div
+                    key={act.id || idx}
+                    className="py-2 flex items-center justify-between text-xs"
+                  >
+                    <div className="flex items-center gap-2 truncate pr-2">
+                      <GitCommit size={13} className="text-text-subtle shrink-0" />
+                      <div className="truncate">
+                        <span className="text-text font-medium block truncate">
+                          {act.title}
+                        </span>
+                        <span className="text-[11px] text-text-subtler block truncate">
+                          {act.author || act.user || 'Engineer'}
+                        </span>
+                      </div>
+                    </div>
+                    <span className="text-[10px] text-text-subtle shrink-0">
+                      {act.time || 'recent'}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <div className="py-6 text-center text-xs text-text-subtle">
+                  No recent commits recorded
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* =========================================================================
+          GROUP 4: TEAM & PLANNING (Workload, automated insights, upcoming milestones)
+          ========================================================================= */}
+      <section aria-label="Team & Planning" className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-text tracking-tight">
+              Team & Planning
+            </h2>
+            <p className="text-xs text-text-subtle">
+              Workload distribution, AI-guided suggestions, and delivery milestone targets
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          {/* Card 1: Team Workload */}
+          <div className="bg-card border border-border-subtle p-4 sm:p-5 rounded-xl shadow-xs flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xs font-semibold text-text">
+                Team Workload
+              </h3>
+              <button
+                onClick={() => setActiveTab?.('team')}
+                className="text-primary text-xs font-medium hover:underline cursor-pointer border-none bg-transparent"
+              >
+                Team capacity →
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-3 py-1 flex-1 justify-center">
+              {teamWorkload && teamWorkload.length > 0 ? (
+                teamWorkload.slice(0, 4).map((user, idx) => (
+                  <div key={idx} className="flex flex-col gap-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-5 h-5 rounded-full bg-primary/10 text-primary border border-primary/20 flex items-center justify-center font-bold text-[10px]">
+                          {user.member?.[0] || 'E'}
+                        </div>
+                        <span className="text-text font-medium truncate max-w-[150px]">
+                          {user.member}
+                        </span>
+                      </div>
+                      <span
+                        className={`font-semibold ${
+                          user.status === 'Overallocated'
+                            ? 'text-status-error'
+                            : user.status === 'Committed'
+                              ? 'text-status-warning'
+                              : 'text-status-success'
+                        }`}
+                      >
+                        {user.load}%
+                      </span>
+                    </div>
+                    <div className="w-full bg-background-elevated h-1 rounded-full overflow-hidden border border-border-subtle/40">
+                      <div
+                        className={`h-full rounded-full ${
+                          user.status === 'Overallocated'
+                            ? 'bg-status-error'
+                            : user.status === 'Committed'
+                              ? 'bg-status-warning'
+                              : 'bg-status-success'
+                        }`}
+                        style={{ width: `${Math.min(100, user.load || 0)}%` }}
+                      />
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="py-6 text-center text-xs text-text-subtle">
+                  No team allocations registered
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Card 2: AI Recommendations */}
+          <div className="bg-card border border-border-subtle p-4 sm:p-5 rounded-xl shadow-xs flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xs font-semibold text-text">
+                AI Insights & Recommendations
+              </h3>
+              <button
+                onClick={() => setActiveTab?.('insights')}
+                className="text-primary text-xs font-medium hover:underline cursor-pointer border-none bg-transparent"
+              >
+                AI Insights tab →
+              </button>
+            </div>
+
+            <div className="divide-y divide-border-subtle/50 flex flex-col justify-center flex-1">
+              {aiInsights && aiInsights.length > 0 ? (
+                aiInsights.slice(0, 3).map((insight, idx) => (
+                  <div
+                    key={idx}
+                    className="py-2.5 first:pt-1 last:pb-1 flex items-center justify-between hover:bg-background-elevated/40 px-2 rounded-lg transition-colors"
+                  >
+                    <div className="flex flex-col gap-0.5 pr-2 truncate">
+                      <span className="text-xs font-semibold text-text truncate">
+                        {insight.title}
+                      </span>
+                      <span className="text-[11px] text-text-subtle truncate">
+                        {insight.desc}
+                      </span>
+                    </div>
+                    <span
+                      className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${
+                        insight.action === 'Positive'
+                          ? 'bg-status-success/10 text-status-success'
+                          : insight.action === 'Review'
+                            ? 'bg-status-warning/10 text-status-warning'
+                            : 'bg-primary/10 text-primary'
+                      }`}
+                    >
+                      {insight.action}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <div className="py-6 text-center text-xs text-text-subtle">
+                  Not enough sprint telemetry for insights
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Card 3: Upcoming Deadlines */}
+          <div className="bg-card border border-border-subtle p-4 sm:p-5 rounded-xl shadow-xs flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xs font-semibold text-text">
+                Upcoming Deadlines
+              </h3>
+            </div>
+
+            <div className="divide-y divide-border-subtle/50 flex flex-col justify-center flex-1">
+              {upcomingDeadlines && upcomingDeadlines.length > 0 ? (
+                upcomingDeadlines.slice(0, 3).map((deadline, idx) => (
+                  <div
+                    key={deadline.id || idx}
+                    className="py-2.5 first:pt-1 last:pb-1 flex items-center justify-between text-xs"
+                  >
+                    <div className="flex flex-col gap-0.5 truncate pr-2">
+                      <span className="text-text font-semibold truncate">
+                        {deadline.title}
+                      </span>
+                      <span className="text-[10px] text-text-subtler">
+                        {deadline.date}
+                      </span>
+                    </div>
+                    <span
+                      className={`text-[11px] font-semibold shrink-0 ${
+                        deadline.daysLeft <= 3
+                          ? 'text-status-error'
+                          : deadline.daysLeft <= 7
+                            ? 'text-status-warning'
+                            : 'text-status-success'
+                      }`}
+                    >
+                      {deadline.daysLeft}d left
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <div className="py-6 text-center text-xs text-text-subtle">
+                  No upcoming deadlines
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   );
 };

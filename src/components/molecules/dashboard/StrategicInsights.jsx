@@ -13,52 +13,57 @@ const StrategicInsights = () => {
     refetchInterval: 300000, // 5 minutes
   });
 
-  if (isLoading) return null;
+  if (isLoading) {
+    return null;
+  }
+
+  const hasRecommendations =
+    Array.isArray(recommendations) && recommendations.length > 0;
 
   return (
     <DashboardSection
       title="Strategic Insights"
       icon={<Lightbulb size={14} className="text-primary" />}
     >
-      <div className="space-y-3 pt-2">
-        {recommendations?.length > 0 ? (
-          recommendations.slice(0, 4).map((rec, i) => (
-            <div
-              key={i}
-              className="group p-3 bg-white/[0.03] border border-white/[0.05] rounded-xl hover:bg-white/[0.05] transition-all cursor-pointer"
-            >
-              <div className="flex items-start gap-3">
-                <div
-                  className={`mt-1 p-1.5 rounded-lg ${
-                    rec.priority === 'high'
-                      ? 'bg-status-error/10 text-status-error'
-                      : rec.priority === 'medium'
-                        ? 'bg-status-warning/10 text-status-warning'
-                        : 'bg-primary/10 text-primary'
-                  }`}
-                >
-                  <AlertCircle size={12} />
-                </div>
-                <div className="flex-grow">
-                  <p className="text-[11px] font-bold text-white mb-1 leading-tight group-hover:text-primary transition-colors">
-                    {rec.message}
-                  </p>
-                  <p className="text-[9px] text-white/40 font-medium uppercase tracking-wider flex items-center gap-1">
-                    Recommendation: {rec.action}
-                    <ChevronRight
-                      size={10}
-                      className="group-hover:translate-x-1 transition-transform"
-                    />
-                  </p>
+      <div className="pt-1">
+        {hasRecommendations ? (
+          <div className="divide-y divide-border-subtle/50">
+            {recommendations.slice(0, 4).map((rec, i) => (
+              <div
+                key={i}
+                className="py-2.5 first:pt-0 last:pb-0 group hover:bg-background-elevated/40 px-2 -mx-2 rounded-lg transition-colors cursor-pointer"
+              >
+                <div className="flex items-start gap-3">
+                  <div
+                    className={`mt-0.5 p-1 rounded-md shrink-0 ${
+                      rec.priority === 'high'
+                        ? 'bg-status-error/10 text-status-error'
+                        : rec.priority === 'medium'
+                          ? 'bg-status-warning/10 text-status-warning'
+                          : 'bg-primary/10 text-primary'
+                    }`}
+                  >
+                    <AlertCircle size={14} />
+                  </div>
+                  <div className="flex-grow min-w-0">
+                    <p className="text-xs font-semibold text-text mb-0.5 leading-snug group-hover:text-primary transition-colors">
+                      {rec.message}
+                    </p>
+                    <p className="text-[11px] text-text-subtle font-medium flex items-center gap-1 truncate">
+                      <span>Recommendation: {rec.action}</span>
+                      <ChevronRight
+                        size={11}
+                        className="group-hover:translate-x-0.5 transition-transform shrink-0"
+                      />
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
+            ))}
+          </div>
         ) : (
-          <div className="p-8 text-center border border-dashed border-white/10 rounded-xl">
-            <p className="text-[10px] text-white/30 uppercase font-black italic tracking-widest">
-              No strategic deviations detected.
-            </p>
+          <div className="py-2.5 px-3.5 bg-background-elevated/30 border border-border-subtle/60 rounded-lg text-xs text-text-subtle text-center">
+            Not enough data for insights
           </div>
         )}
       </div>

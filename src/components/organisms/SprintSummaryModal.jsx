@@ -1,9 +1,20 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { X, CheckCircle2, TrendingUp, Sparkles, Award } from 'lucide-react';
 
 // Modal component that presents sprint completion retrospective and key metrics
 const SprintSummaryModal = ({ finalSummary, setFinalSummary }) => {
+  useEffect(() => {
+    if (!finalSummary) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setFinalSummary(null);
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [finalSummary, setFinalSummary]);
+
   if (!finalSummary) return null;
 
   const metrics = finalSummary.metrics || {};
@@ -12,21 +23,27 @@ const SprintSummaryModal = ({ finalSummary, setFinalSummary }) => {
       label: 'Velocity (Completed)',
       value: metrics.velocity ?? 0,
       color: 'text-primary',
+      description: 'Tasks successfully finished in this sprint',
     },
     {
       label: 'Retention Rate',
       value: `${(metrics.retention || 0).toFixed(1)}%`,
       color: 'text-status-success',
+      description: 'Scope retained without unexpected churn',
     },
     {
       label: 'Spillover (Pending)',
       value: metrics.spillover ?? 0,
       color: 'text-status-warning',
+      description: 'Tasks carrying over to the next sprint',
     },
   ];
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="retrospective-modal-title"
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in"
       onClick={() => setFinalSummary(null)}
     >
@@ -41,7 +58,7 @@ const SprintSummaryModal = ({ finalSummary, setFinalSummary }) => {
               <CheckCircle2 size={16} />
             </div>
             <div>
-              <h2 className="text-base font-bold text-text">
+              <h2 id="retrospective-modal-title" className="text-base font-bold text-text">
                 Sprint Retrospective Summary
               </h2>
               <p className="text-xs text-text-subtle">
@@ -52,6 +69,7 @@ const SprintSummaryModal = ({ finalSummary, setFinalSummary }) => {
           <button
             type="button"
             onClick={() => setFinalSummary(null)}
+            aria-label="Close dialog"
             className="w-7 h-7 flex items-center justify-center text-text-subtle hover:text-text rounded-xs transition-colors cursor-pointer"
           >
             <X size={16} />
@@ -64,6 +82,7 @@ const SprintSummaryModal = ({ finalSummary, setFinalSummary }) => {
             <div
               key={i}
               className="bg-background-elevated p-3.5 rounded-md border border-border-subtle text-center space-y-1"
+              title={stat.description}
             >
               <p className="text-xs font-semibold text-text-subtle truncate">
                 {stat.label}
@@ -98,14 +117,14 @@ const SprintSummaryModal = ({ finalSummary, setFinalSummary }) => {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               {finalSummary.topContributors.map((c, idx) => (
                 <div
-                  key={idx}
+                  key={c._id || idx}
                   className="bg-background-elevated border border-border-subtle rounded-xs px-3 py-2 flex items-center justify-between text-xs"
                 >
-                  <span className="font-semibold text-text truncate">
-                    {c.name}
+                  <span className="font-medium text-text truncate">
+                    {c.name || 'Member'}
                   </span>
-                  <span className="text-text-subtler text-[11px] font-medium ml-2 shrink-0">
-                    {c.missions || c.count} tasks
+                  <span className="text-[11px] text-text-subtle font-semibold">
+                    {c.count} tasks
                   </span>
                 </div>
               ))}
@@ -120,7 +139,7 @@ const SprintSummaryModal = ({ finalSummary, setFinalSummary }) => {
             onClick={() => setFinalSummary(null)}
             className="px-4 py-2 bg-primary hover:bg-primary-hover text-white text-xs font-semibold rounded-xs transition-colors cursor-pointer"
           >
-            Close summary
+            Close retrospective
           </button>
         </div>
       </div>
@@ -129,7 +148,22 @@ const SprintSummaryModal = ({ finalSummary, setFinalSummary }) => {
 };
 
 SprintSummaryModal.propTypes = {
-  finalSummary: PropTypes.object,
+  finalSummary: PropTypes.shape({
+    sprint: PropTypes.string,
+    metrics: PropTypes.shape({
+      velocity: PropTypes.number,
+      retention: PropTypes.number,
+      spillover: PropTypes.number,
+    }),
+    summary: PropTypes.string,
+    topContributors: PropTypes.arrayOf(
+      PropTypes.shape({
+        _id: PropTypes.string,
+        name: PropTypes.string,
+        count: PropTypes.number,
+      })
+    ),
+  }),
   setFinalSummary: PropTypes.func.isRequired,
 };
 

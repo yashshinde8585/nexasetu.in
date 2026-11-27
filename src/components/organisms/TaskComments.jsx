@@ -21,7 +21,12 @@ const TaskComments = ({ taskId }) => {
   });
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (
+      messagesEndRef.current &&
+      typeof messagesEndRef.current.scrollIntoView === 'function'
+    ) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
   useEffect(() => {
@@ -103,40 +108,44 @@ const TaskComments = ({ taskId }) => {
   );
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-transparent">
+    <div className="flex flex-col h-full bg-card border border-border-subtle rounded-xl shadow-sm overflow-hidden">
       {/* Discussion Header */}
-      <div className="px-5 md:px-6 py-4 border-b border-border-subtle flex items-center justify-between bg-background-dark">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-background-dark border border-primary/40 flex items-center justify-center shadow-[0_0_10px_rgba(59,130,246,0.1)]">
-            <MessageSquare size={16} className="text-primary" />
+      <div className="px-4 py-3.5 border-b border-border-subtle flex items-center justify-between bg-background-elevated/40">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
+            <MessageSquare size={14} />
           </div>
           <div className="flex flex-col">
-            <h3 className="text-[10px] md:text-[11px] font-black text-text uppercase tracking-[0.2em]">
-              Mission Discussion
+            <h3 className="text-xs font-semibold text-text">
+              Discussion
             </h3>
-            <span className="text-[8px] font-black text-text-subtle uppercase tracking-widest">
-              {comments.length} Signals in thread
+            <span className="text-[11px] font-medium text-text-subtle">
+              {comments.length} {comments.length === 1 ? 'comment' : 'comments'}
             </span>
           </div>
         </div>
       </div>
 
       {/* Message Feed */}
-      <div className="flex-1 overflow-y-auto p-6 pb-12 space-y-8 custom-scrollbar-thin scroll-smooth">
-        {comments.map((comment, index) => {
+      <div className="flex-1 overflow-y-auto p-3.5 sm:p-4 space-y-3.5 sm:space-y-4 min-h-[90px] max-h-[360px] sm:max-h-[460px] custom-scrollbar-thin">
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-6 text-text-subtle">
+            <p className="text-xs font-medium">Loading comments...</p>
+          </div>
+        ) : comments.map((comment, index) => {
           const isOwn = comment.user?._id === user?._id;
 
           return (
             <div
               key={comment._id || index}
-              className={`flex items-start gap-4 group animate-in slide-in-from-bottom-2 duration-500 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}
+              className={`flex items-start gap-2.5 sm:gap-3 group animate-in slide-in-from-bottom-1 duration-300 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}
             >
               {/* Avatar */}
               <div
-                className={`w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-black shadow-lg border shrink-0 transition-transform group-hover:scale-105 ${
+                className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold border shrink-0 transition-transform group-hover:scale-105 ${
                   isOwn
-                    ? 'bg-background-dark border-primary text-primary shadow-[0_0_10px_rgba(59,130,246,0.3)]'
-                    : 'bg-background-dark border-border-subtle text-text-subtle'
+                    ? 'bg-primary/10 border-primary/30 text-primary'
+                    : 'bg-background-elevated border-border-subtle text-text-subtle'
                 }`}
               >
                 {comment.user?.name ? comment.user.name[0].toUpperCase() : 'U'}
@@ -147,52 +156,56 @@ const TaskComments = ({ taskId }) => {
               >
                 {/* Message Header */}
                 <div
-                  className={`flex items-baseline gap-3 mb-1 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}
+                  className={`flex items-baseline gap-2 mb-1 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}
                 >
                   {!isOwn && (
-                    <span className="text-[12px] font-black tracking-tight text-text-muted">
+                    <span className="text-xs font-semibold text-text truncate max-w-[150px]">
                       {comment.user?.name}
                     </span>
                   )}
-                  <span className="text-[9px] font-black text-text-subtle uppercase tracking-widest">
+                  <span className="text-[11px] text-text-subtle shrink-0">
                     {formatTime(comment.createdAt)}
                   </span>
                 </div>
 
                 {/* Message Content */}
-                <div className="text-[13px] leading-relaxed font-bold text-text-muted max-w-[95%] text-left">
+                <div className={`text-xs sm:text-sm leading-relaxed p-2.5 sm:p-3 rounded-xl max-w-[92%] sm:max-w-[85%] text-left border break-words ${
+                  isOwn
+                    ? 'bg-primary/10 border-primary/20 text-text'
+                    : 'bg-background-elevated border-border-subtle text-text'
+                }`}>
                   {comment.content}
                 </div>
               </div>
             </div>
           );
         })}
-        <div ref={messagesEndRef} className="h-4" />
+        <div ref={messagesEndRef} className="h-1" />
 
-        {comments.length === 0 && (
-          <div className="h-full flex flex-col items-center justify-center text-center opacity-10 py-12">
-            <MessageSquare size={48} className="mb-4 text-text" />
-            <p className="text-[11px] font-black uppercase tracking-[0.3em] text-text">
-              Initializing Discussion Channel
-            </p>
+        {!isLoading && comments.length === 0 && (
+          <div className="flex flex-col items-center justify-center text-center py-6 sm:py-8 text-text-subtle">
+            <MessageSquare size={28} className="mb-2 opacity-30 text-text" />
+            <p className="text-xs font-medium text-text">No comments yet</p>
+            <p className="text-[11px] text-text-subtle mt-0.5">Start the conversation by writing a comment below.</p>
           </div>
         )}
       </div>
 
       {/* Input Area */}
-      <div className="p-4 md:p-5 bg-background-dark border-t border-border-subtle relative">
+      <div className="p-3 bg-card border-t border-border-subtle relative">
         {showMentions && filteredMembers.length > 0 && (
-          <div className="absolute bottom-full left-4 right-4 mb-3 bg-background-dark border border-border-subtle rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] overflow-hidden animate-in slide-in-from-bottom-2 duration-300 z-50">
+          <div className="absolute bottom-full left-2 right-2 mb-2 bg-card border border-border-subtle rounded-xl shadow-xl overflow-hidden z-50 max-h-40 sm:max-h-48 overflow-y-auto">
             {filteredMembers.map((member) => (
               <button
                 key={member._id}
+                type="button"
                 onClick={() => selectMention(member.name)}
-                className="w-full px-5 py-3 text-left flex items-center gap-4 hover:bg-primary/10 transition-colors group"
+                className="w-full px-3 py-2 min-h-[38px] text-left flex items-center gap-2.5 hover:bg-background-elevated transition-colors text-xs text-text cursor-pointer"
               >
-                <div className="w-7 h-7 rounded-lg bg-background-dark flex items-center justify-center text-[11px] font-black text-text-subtle group-hover:text-primary transition-all border border-transparent group-hover:border-primary">
+                <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-semibold shrink-0">
                   {member.name[0]}
                 </div>
-                <span className="text-[11px] font-bold text-text-subtle group-hover:text-text uppercase tracking-tight">
+                <span className="font-medium text-text truncate">
                   {member.name}
                 </span>
               </button>
@@ -200,23 +213,23 @@ const TaskComments = ({ taskId }) => {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="relative group/input">
+        <form onSubmit={handleSubmit} className="relative flex items-center gap-2">
           <input
             type="text"
             value={newComment}
             onChange={handleInputChange}
-            placeholder="TYPE OBJECTIVE UPDATE..."
-            className="w-full bg-background-dark border border-border-subtle rounded-xl py-3.5 md:py-4 pl-5 md:pl-6 pr-14 text-[11px] font-black tracking-widest text-text placeholder:text-text-subtler focus:outline-none focus:border-primary focus:bg-background-elevated transition-all shadow-inner uppercase"
+            placeholder="Write a comment... (Type @ to mention)"
+            className="w-full bg-background-elevated border border-border-subtle rounded-lg py-2.5 pl-3.5 pr-11 text-base sm:text-xs text-text placeholder:text-text-subtle focus:outline-none focus:border-primary transition-colors min-h-[44px]"
+            aria-label="Write a comment"
           />
           <button
             type="submit"
             disabled={!newComment.trim() || addCommentMutation.isPending}
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center text-text-subtler hover:text-primary transition-colors disabled:opacity-5 pr-4"
+            title="Send comment"
+            aria-label="Send comment"
+            className="absolute right-1.5 top-1/2 -translate-y-1/2 w-10 h-10 min-w-[40px] min-h-[40px] flex items-center justify-center text-text-subtle hover:text-primary transition-colors disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed"
           >
-            <Send
-              size={18}
-              className="transition-transform group-hover/input:scale-110"
-            />
+            <Send size={15} />
           </button>
         </form>
       </div>

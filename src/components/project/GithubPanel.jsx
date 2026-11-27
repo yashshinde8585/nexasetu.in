@@ -31,19 +31,19 @@ const GithubPanel = ({
   setGithubSuggestions,
 }) => {
   return (
-    <div className="bg-background-elevated border border-border-subtle p-8 rounded-2xl mb-10 shadow-3xl animate-in fade-in slide-in-from-top-4 duration-500">
+    <div className="bg-card border border-border-subtle p-6 rounded-xl mb-6 shadow-sm animate-in fade-in duration-300">
       {/* Panel Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-10">
-        <div className="flex items-center gap-5">
-          <div className="w-14 h-14 bg-background-dark border border-white/25 rounded-xl flex items-center justify-center text-primary-light shadow-xl">
-            <GitBranch size={28} />
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-4 border-b border-border-subtle">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-background-elevated border border-border-subtle rounded-lg flex items-center justify-center text-primary">
+            <GitBranch size={20} />
           </div>
-          <div className="space-y-1">
-            <h3 className="text-xl font-black uppercase tracking-tight text-text">
-              Source Integration
+          <div className="space-y-0.5">
+            <h3 className="text-base font-semibold text-text">
+              Repository Integration
             </h3>
-            <p className="text-[10px] font-black text-text-subtle uppercase tracking-widest leading-none">
-              Synchronizing project tasks with distributed version control
+            <p className="text-xs text-text-subtle">
+              Synchronize project tasks with GitHub repository activity
             </p>
           </div>
         </div>
@@ -53,75 +53,75 @@ const GithubPanel = ({
             onClick={fetchGithubActivity}
             disabled={isFetchingGithub}
             variant="primary"
-            className="h-12 px-8 text-[10px] font-black uppercase tracking-widest shadow-xl shadow-primary/40 bg-primary text-background-dark"
+            className="h-9 px-4 text-xs font-semibold bg-primary text-background-dark hover:bg-primary/90 transition-colors"
           >
             {isFetchingGithub ? (
               <RefreshCw size={14} className="animate-spin mr-2" />
             ) : (
               <RefreshCw size={14} className="mr-2" />
             )}
-            {isFetchingGithub ? 'SYNCING...' : 'SYNC REPO ACTIVITY'}
+            {isFetchingGithub ? 'Syncing...' : 'Sync repository activity'}
           </Button>
         )}
       </div>
 
       {!githubConnected ? (
-        <div className="space-y-6">
-          <div className="p-5 bg-primary/10 border border-primary/40 rounded-xl flex items-center gap-4 text-primary">
-            <Activity size={18} className="shrink-0" />
-            <p className="text-[10px] font-black uppercase tracking-widest leading-relaxed">
-              INTEGRATION REQUIRED: PROVIDE A GITHUB PERSONAL ACCESS TOKEN (PAT)
-              TO ENABLE TASK DETECTION.
+        <div className="space-y-4">
+          <div className="p-4 bg-primary/10 border border-primary/20 rounded-lg flex items-center gap-3 text-text">
+            <Activity size={16} className="text-primary shrink-0" />
+            <p className="text-xs text-text-subtle leading-relaxed">
+              Provide a GitHub Personal Access Token (PAT) with repo read access to detect commits and PRs.
               <a
                 href="https://github.com/settings/tokens"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="ml-2 text-text border-b border-white hover:text-primary transition-colors font-black"
+                className="ml-2 text-primary hover:underline font-medium"
               >
-                TOKEN GENERATOR
+                Generate token
               </a>
             </p>
           </div>
-          <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex flex-col sm:flex-row gap-3">
             <input
               type="password"
-              placeholder="PASTE GITHUB PAT..."
-              className="flex-1 h-12 bg-background-dark border border-white/25 text-text rounded-xl px-6 text-[11px] font-black uppercase tracking-widest focus:outline-none focus:border-primary focus:bg-background-elevated transition-all placeholder:text-text-subtle"
+              placeholder="Paste GitHub Personal Access Token..."
+              className="flex-1 h-10 bg-background-elevated border border-border-subtle text-text rounded-lg px-4 text-xs focus:outline-none focus:border-primary transition-colors placeholder:text-text-subtle"
               value={githubToken}
               onChange={(e) => setGithubToken(e.target.value)}
             />
             <Button
               onClick={handleConnectGithub}
-              className="h-12 px-10 text-[10px] font-black tracking-widest bg-primary text-background-dark hover:bg-primary-dark"
+              className="h-10 px-6 text-xs font-semibold bg-primary text-background-dark hover:bg-primary/90 transition-colors"
             >
-              LINK ACCOUNT
+              Link account
             </Button>
           </div>
         </div>
       ) : (
-        <div className="animate-in fade-in duration-500">
+        <div className="animate-in fade-in duration-300">
           {!project?.githubRepo ? (
-            <div className="space-y-6">
-              <div className="flex justify-between items-center border-b border-white/15 pb-4">
-                <h4 className="text-xs font-black uppercase tracking-[0.3em] text-text-muted">
-                  Repository Inventory
+            <div className="space-y-4">
+              <div className="flex justify-between items-center pb-2">
+                <h4 className="text-xs font-semibold text-text">
+                  Available Repositories
                 </h4>
                 <button
                   onClick={fetchRepos}
-                  className="text-[9px] font-black uppercase tracking-widest text-primary hover:text-text transition-colors border border-primary/40 px-3 py-1.5 rounded-lg"
+                  className="text-xs font-medium text-primary hover:underline transition-colors flex items-center gap-1"
                 >
-                  RE-SCAN REPOS
+                  <RefreshCw size={12} />
+                  Rescan
                 </button>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[400px] overflow-y-auto pr-3 custom-scrollbar">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[360px] overflow-y-auto pr-2">
                 {loadingRepos ? (
-                  <div className="col-span-full py-16 flex flex-col items-center gap-4 opacity-60">
+                  <div className="col-span-full py-12 flex flex-col items-center gap-3 text-text-subtle">
                     <RefreshCw
-                      size={32}
+                      size={24}
                       className="animate-spin text-primary"
                     />
-                    <span className="text-[9px] font-black uppercase tracking-widest">
-                      FETCHING DATA...
+                    <span className="text-xs font-medium">
+                      Fetching repositories...
                     </span>
                   </div>
                 ) : (
@@ -129,17 +129,17 @@ const GithubPanel = ({
                     <button
                       key={r.id}
                       onClick={() => handleLinkRepo(r)}
-                      className="p-5 text-left bg-background-dark border border-white/15 rounded-xl hover:border-primary hover:bg-background-elevated transition-all group relative overflow-hidden"
+                      className="p-4 text-left bg-background-elevated border border-border-subtle rounded-lg hover:border-primary/50 transition-colors group relative"
                     >
-                      <h5 className="text-[11px] font-black uppercase tracking-widest text-text mb-2 group-hover:text-primary">
+                      <h5 className="text-xs font-semibold text-text mb-1 group-hover:text-primary transition-colors truncate">
                         {r.fullName}
                       </h5>
                       {r.description && (
-                        <p className="text-[9px] font-black text-text-subtle uppercase tracking-widest line-clamp-2">
+                        <p className="text-xs text-text-subtle line-clamp-2">
                           {r.description}
                         </p>
                       )}
-                      <div className="absolute right-4 top-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity">
                         <Link size={14} className="text-primary" />
                       </div>
                     </button>
@@ -148,88 +148,88 @@ const GithubPanel = ({
               </div>
             </div>
           ) : (
-            <div className="space-y-10">
-              <div className="flex flex-col sm:flex-row items-center justify-between p-6 bg-background-dark border border-border-subtle rounded-2xl shadow-xl transition-all hover:bg-background-elevated">
-                <div className="flex items-center gap-5 w-full">
-                  <div className="w-14 h-14 bg-background-elevated border border-white/15 rounded-xl flex items-center justify-center text-primary">
-                    <ExternalLink size={24} />
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row items-center justify-between p-4 bg-background-elevated border border-border-subtle rounded-xl gap-4">
+                <div className="flex items-center gap-3 w-full">
+                  <div className="w-10 h-10 bg-card border border-border-subtle rounded-lg flex items-center justify-center text-primary">
+                    <ExternalLink size={18} />
                   </div>
-                  <div className="space-y-1">
-                    <h4 className="text-lg font-black uppercase tracking-tighter text-text">
+                  <div className="space-y-0.5">
+                    <h4 className="text-sm font-semibold text-text">
                       {project.githubRepo.fullName}
                     </h4>
-                    <span className="text-[11px] font-black uppercase tracking-[0.3em] text-status-success flex items-center gap-2">
-                      <span className="w-2 h-2 bg-status-success rounded-full animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.6)]" />{' '}
-                      TARGET REPOSITORY LINKED
+                    <span className="text-xs font-medium text-status-success flex items-center gap-1.5">
+                      <span className="w-2 h-2 bg-status-success rounded-full" />
+                      Repository linked
                     </span>
                   </div>
                 </div>
                 <button
                   onClick={() => setProject({ ...project, githubRepo: null })}
-                  className="mt-6 sm:mt-0 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-status-error border border-status-error/40 hover:bg-status-error hover:text-background-dark rounded-lg transition-all"
+                  className="px-3 py-1.5 text-xs font-medium text-status-error border border-status-error/30 hover:bg-status-error/10 rounded-lg transition-colors whitespace-nowrap"
                 >
-                  DE-LINK REPOSITORY
+                  Unlink repository
                 </button>
               </div>
 
               {githubSuggestions.length > 0 && (
-                <section className="space-y-6 animate-in slide-in-from-bottom-6 duration-700">
-                  <div className="flex justify-between items-end border-b border-primary/40 pb-4">
-                    <div className="space-y-1">
-                      <h4 className="text-sm font-black uppercase tracking-[0.3em] text-primary flex items-center gap-3">
-                        <Cpu size={18} /> Extraction Engine
+                <section className="space-y-4">
+                  <div className="flex justify-between items-center pb-2 border-b border-border-subtle">
+                    <div className="space-y-0.5">
+                      <h4 className="text-xs font-semibold text-primary flex items-center gap-2">
+                        <Cpu size={14} /> Git Task Suggestions
                       </h4>
-                      <p className="text-[10px] font-black text-text/70 uppercase tracking-widest">
-                        Found {githubSuggestions.length} potential task updates
-                        from Git telemetry
+                      <p className="text-xs text-text-subtle">
+                        Found {githubSuggestions.length} task updates from Git activity
                       </p>
                     </div>
                     <button
                       onClick={handleApproveAllGithubTasks}
-                      className="text-[10px] font-black uppercase tracking-[0.2em] text-text hover:text-primary transition-colors border-b-2 border-primary px-1"
+                      className="text-xs font-semibold text-primary hover:underline transition-colors"
                     >
-                      COMMIT ALL SUGGESTIONS
+                      Approve all
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 max-h-[500px] overflow-y-auto pr-3 custom-scrollbar">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 max-h-[400px] overflow-y-auto pr-2">
                     {githubSuggestions.map((s, idx) => (
                       <div
                         key={idx}
-                        className="bg-background-dark p-6 rounded-2xl border border-border-subtle hover:border-primary transition-all group relative"
+                        className="bg-card p-4 rounded-xl border border-border-subtle hover:border-primary/40 transition-colors flex flex-col justify-between"
                       >
-                        <div className="absolute top-4 right-4 text-[9px] font-black px-3 py-1 rounded-full bg-background-elevated border border-white/25 text-text-muted uppercase tracking-[0.2em]">
-                          {s.type} EVENT
-                        </div>
-
-                        <div className="flex flex-col h-full">
-                          <h5 className="text-[12px] font-black uppercase tracking-widest text-text mb-3 leading-tight group-hover:text-primary transition-colors">
-                            {s.title}
-                          </h5>
-                          <div className="p-3 bg-background-elevated border border-white/15 rounded-xl mb-6">
-                            <p className="text-[10px] font-black text-text/70 uppercase tracking-widest italic line-clamp-3">
+                        <div>
+                          <div className="flex items-center justify-between gap-2 mb-2">
+                            <h5 className="text-xs font-semibold text-text truncate">
+                              {s.title}
+                            </h5>
+                            <span className="text-xs font-medium px-2 py-0.5 rounded bg-background-elevated border border-border-subtle text-text-subtle capitalize">
+                              {s.type}
+                            </span>
+                          </div>
+                          <div className="p-2.5 bg-background-elevated rounded-lg mb-3">
+                            <p className="text-xs text-text-subtle italic line-clamp-2">
                               &ldquo;{s.originalMessage}&rdquo;
                             </p>
                           </div>
+                        </div>
 
-                          <div className="mt-auto flex items-center gap-3">
-                            <button
-                              onClick={() => handleApproveGithubTask(s)}
-                              className="flex-1 bg-primary text-background-dark text-[10px] font-black uppercase tracking-[0.1em] py-3 rounded-xl hover:bg-primary-dark shadow-xl shadow-primary/20 transition-all flex items-center justify-center gap-2"
-                            >
-                              <Check size={14} strokeWidth={3} /> APPROVE
-                            </button>
-                            <button
-                              onClick={() =>
-                                setGithubSuggestions((prev) =>
-                                  prev.filter((t) => t.githubId !== s.githubId)
-                                )
-                              }
-                              className="flex-1 bg-background-elevated text-text-muted text-[10px] font-black uppercase tracking-[0.1em] py-3 rounded-xl hover:bg-border-subtle hover:text-text transition-all flex items-center justify-center gap-2 border border-border-subtle"
-                            >
-                              <CloseIcon size={14} strokeWidth={3} /> IGNORE
-                            </button>
-                          </div>
+                        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border-subtle">
+                          <button
+                            onClick={() => handleApproveGithubTask(s)}
+                            className="flex-1 bg-primary text-background-dark text-xs font-semibold py-1.5 rounded-lg hover:bg-primary/90 transition-colors flex items-center justify-center gap-1.5"
+                          >
+                            <Check size={14} /> Approve
+                          </button>
+                          <button
+                            onClick={() =>
+                              setGithubSuggestions((prev) =>
+                                prev.filter((t) => t.githubId !== s.githubId)
+                              )
+                            }
+                            className="flex-1 bg-background-elevated text-text-subtle text-xs font-medium py-1.5 rounded-lg hover:bg-card hover:text-text transition-colors flex items-center justify-center gap-1.5 border border-border-subtle"
+                          >
+                            <CloseIcon size={14} /> Ignore
+                          </button>
                         </div>
                       </div>
                     ))}

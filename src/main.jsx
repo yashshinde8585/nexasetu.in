@@ -2,6 +2,7 @@ import { StrictMode, lazy, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
 import App from './App.jsx';
+import ErrorBoundary from './components/atoms/ErrorBoundary';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { MagicProvider } from './context/MagicContext';
@@ -27,24 +28,26 @@ if (!PUBLISHABLE_KEY) {
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <ClerkProvider publishableKey={PUBLISHABLE_KEY}>
-        <AuthProvider>
-          <ThemeProvider>
-            <MagicProvider>
-              <BrowserRouter>
-                <App />
-              </BrowserRouter>
-            </MagicProvider>
-          </ThemeProvider>
-        </AuthProvider>
-      </ClerkProvider>
-      {/* DevTools: only rendered in development */}
-      {ReactQueryDevtools && (
-        <Suspense fallback={null}>
-          <ReactQueryDevtools initialIsOpen={false} />
-        </Suspense>
-      )}
-    </QueryClientProvider>
+    <ErrorBoundary scope="app">
+      <QueryClientProvider client={queryClient}>
+        <ClerkProvider publishableKey={PUBLISHABLE_KEY}>
+          <AuthProvider>
+            <ThemeProvider>
+              <MagicProvider>
+                <BrowserRouter>
+                  <App />
+                </BrowserRouter>
+              </MagicProvider>
+            </ThemeProvider>
+          </AuthProvider>
+        </ClerkProvider>
+        {/* DevTools: only rendered in development */}
+        {ReactQueryDevtools && (
+          <Suspense fallback={null}>
+            <ReactQueryDevtools initialIsOpen={false} />
+          </Suspense>
+        )}
+      </QueryClientProvider>
+    </ErrorBoundary>
   </StrictMode>
 );

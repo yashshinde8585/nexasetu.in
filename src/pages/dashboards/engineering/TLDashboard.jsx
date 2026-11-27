@@ -1,26 +1,21 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState } from 'react';
 import { useRoleDashboard } from '../../../hooks/useRoleDashboard';
 import CenteredLoading from '../../../components/atoms/CenteredLoading';
 import DashboardSkeleton from '../../../components/atoms/DashboardSkeleton';
 import ErrorBoundary from '../../../components/atoms/ErrorBoundary';
-import ServiceDetailPanel from '../../../components/molecules/dashboard/ServiceDetailPanel';
 import {
   Layout,
   BarChart2,
-  ShieldCheck,
   Users,
   Code as CodeIcon,
-  Network,
   Sparkles,
 } from 'lucide-react';
 
 // Modular Components
 import TLOverviewTab from './TLDashboard/components/TLOverviewTab';
 import TLDeliveryTab from './TLDashboard/components/TLDeliveryTab';
-import TLQualityTab from './TLDashboard/components/TLQualityTab';
 import TLTeamTab from './TLDashboard/components/TLTeamTab';
 import TLCodeTab from './TLDashboard/components/TLCodeTab';
-import DependenciesTab from './TLDashboard/components/DependenciesTab';
 import TLInsightsTab from './TLDashboard/components/TLInsightsTab';
 
 /**
@@ -30,8 +25,6 @@ import TLInsightsTab from './TLDashboard/components/TLInsightsTab';
 const TLDashboard = () => {
   const { data, isLoading } = useRoleDashboard('tl');
   const [activeTab, setActiveTab] = useState('overview');
-  const [selectedService, setSelectedService] = useState(null);
-  const [isPanelOpen, setIsPanelOpen] = useState(false);
 
   const {
     serviceMap = [],
@@ -73,67 +66,15 @@ const TLDashboard = () => {
     technicalDebt = [],
   } = data || {};
 
-  // ReactFlow Nodes and Edges mapping for dependencies tab
-  const { nodes, edges } = useMemo(() => {
-    if (!serviceMap || serviceMap.length === 0) return { nodes: [], edges: [] };
-
-    const initialNodes = serviceMap.map((s, idx) => ({
-      id: s.id || `node-${idx}`,
-      type: 'service',
-      position: { x: (idx % 3) * 350, y: Math.floor(idx / 3) * 250 },
-      data: { ...s },
-    }));
-
-    const initialEdges = [];
-    serviceMap.forEach((s) => {
-      if (s.dependencies) {
-        s.dependencies.forEach((depId) => {
-          initialEdges.push({
-            id: `e-${s.id}-${depId}`,
-            source: s.id,
-            target: depId,
-            animated: true,
-            style: { stroke: 'rgba(255,255,255,0.1)', strokeWidth: 2 },
-          });
-        });
-      }
-    });
-
-    return { nodes: initialNodes, edges: initialEdges };
-  }, [serviceMap]);
-
-  const handleNodeClick = useCallback((event, node) => {
-    setSelectedService(node.data);
-    setIsPanelOpen(true);
-  }, []);
-
   if (isLoading) return <DashboardSkeleton />;
 
   return (
     <div className="min-h-screen bg-background text-text p-4 lg:p-6 font-sans selection:bg-primary max-w-screen-2xl mx-auto flex flex-col gap-6">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-xl lg:text-2xl font-bold tracking-tight text-text">
-            Team Lead Engineering Console
-          </h1>
-          <p className="text-xs sm:text-sm text-text-subtle">
-            Sprint orchestration, architecture dependencies, delivery bottlenecks, and service health.
-          </p>
-        </div>
-      </div>
-
       <div className="flex border-b border-border-subtle overflow-x-auto scrollbar-none gap-1">
         {[
           { id: 'overview', label: 'Overview', icon: <Layout size={14} /> },
           { id: 'delivery', label: 'Delivery', icon: <BarChart2 size={14} /> },
-          { id: 'quality', label: 'Quality', icon: <ShieldCheck size={14} /> },
           { id: 'code', label: 'Code', icon: <CodeIcon size={14} /> },
-          {
-            id: 'dependencies',
-            label: 'Dependencies',
-            icon: <Network size={14} />,
-          },
           { id: 'team', label: 'Team Capacity', icon: <Users size={14} /> },
           {
             id: 'insights',
@@ -158,7 +99,7 @@ const TLDashboard = () => {
 
       <div className="flex-1">
         {activeTab === 'overview' && (
-          <ErrorBoundary>
+          <ErrorBoundary scope="component" resetKeys={[activeTab]}>
             <TLOverviewTab
               sprintProgress={sprintProgress}
               storiesCompleted={storiesCompleted}
@@ -187,7 +128,7 @@ const TLDashboard = () => {
         )}
 
         {activeTab === 'delivery' && (
-          <ErrorBoundary>
+          <ErrorBoundary scope="component" resetKeys={[activeTab]}>
             <TLDeliveryTab
               burndownData={burndownData}
               teamVelocity={teamVelocity}
@@ -202,17 +143,8 @@ const TLDashboard = () => {
           </ErrorBoundary>
         )}
 
-        {activeTab === 'quality' && (
-          <ErrorBoundary>
-            <TLQualityTab
-              codeHealthOverview={codeHealthOverview}
-              technicalDebt={technicalDebt}
-            />
-          </ErrorBoundary>
-        )}
-
         {activeTab === 'code' && (
-          <ErrorBoundary>
+          <ErrorBoundary scope="component" resetKeys={[activeTab]}>
             <TLCodeTab
               pullRequestMetrics={pullRequestMetrics}
               recentActivity={recentActivity}
@@ -220,35 +152,18 @@ const TLDashboard = () => {
           </ErrorBoundary>
         )}
 
-        {activeTab === 'dependencies' && (
-          <ErrorBoundary>
-            <DependenciesTab
-              nodes={nodes}
-              edges={edges}
-              serviceMap={serviceMap}
-              handleNodeClick={handleNodeClick}
-            />
-          </ErrorBoundary>
-        )}
-
         {activeTab === 'team' && (
-          <ErrorBoundary>
+          <ErrorBoundary scope="component" resetKeys={[activeTab]}>
             <TLTeamTab teamWorkload={teamWorkload} serviceMap={serviceMap} />
           </ErrorBoundary>
         )}
 
         {activeTab === 'insights' && (
-          <ErrorBoundary>
+          <ErrorBoundary scope="component" resetKeys={[activeTab]}>
             <TLInsightsTab aiInsights={aiInsights} />
           </ErrorBoundary>
         )}
       </div>
-
-      <ServiceDetailPanel
-        isOpen={isPanelOpen}
-        onClose={() => setIsPanelOpen(false)}
-        service={selectedService}
-      />
     </div>
   );
 };

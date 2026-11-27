@@ -263,93 +263,105 @@ const AdminBilling = () => {
         </div>
       </div>
 
-      {/* Current Plan Card - Unified with Enterprise entitlements (No duplicate section) */}
-      <div className="bg-card border border-border-subtle rounded-xl p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-5 hover:border-border transition-all">
-        <div className="space-y-3 flex-1">
-          <div className="flex items-center gap-2.5 flex-wrap">
-            <h2 className="text-lg font-bold text-text tracking-tight">
-              {planName || currentPlan?.name || 'Enterprise'}
-            </h2>
-            <span className="px-2 py-0.5 bg-status-success/10 border border-status-success/20 text-status-success text-xs font-medium rounded">
-              {subscription?.status ? (subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1)) : 'Active'}
-            </span>
-          </div>
+      {/* 1. Subscription Overview - Prominent Hero Card */}
+      <div className="bg-card border border-border-subtle rounded-xl p-5 sm:p-6 shadow-xs relative overflow-hidden transition-colors hover:border-border">
+        {/* Subtle top primary accent highlight */}
+        <div className="absolute top-0 left-0 right-0 h-1 bg-primary/70" />
 
-          <div className="space-y-1.5">
-            <div className="flex items-baseline gap-2 flex-wrap">
-              <span className="text-xl font-bold tracking-tight text-text">
-                {planPriceFormatted}
-              </span>
-              <span className="text-xs text-text-subtle">
-                • {getRenewalDetails()}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          <div className="space-y-3 flex-1 min-w-0">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h2 className="text-xl sm:text-2xl font-bold text-text tracking-tight">
+                {planName || currentPlan?.name || 'Enterprise'}
+              </h2>
+              <span className="px-2.5 py-0.5 bg-status-success/10 border border-status-success/20 text-status-success text-xs font-semibold rounded-full">
+                {subscription?.status
+                  ? subscription.status.charAt(0).toUpperCase() +
+                    subscription.status.slice(1)
+                  : 'Active'}
               </span>
             </div>
+
+            <div className="space-y-1">
+              <div className="flex items-baseline gap-2 flex-wrap">
+                <span className="text-2xl sm:text-3xl font-extrabold tracking-tight text-text">
+                  {planPriceFormatted}
+                </span>
+                <span className="text-xs text-text-subtle font-medium">
+                  • {getRenewalDetails()}
+                </span>
+              </div>
+            </div>
+
             {currentPlanId === 'enterprise' && (
-              <p className="text-xs text-text-subtler font-normal">
+              <p className="text-xs text-text-subtle font-normal pt-1">
                 Confirmed entitlements: Unlimited projects, sprints, team seats, and AI credits with priority support.
               </p>
             )}
           </div>
 
-        </div>
-
-        {/* Billed seats verified against workspace membership */}
-        <div className="md:text-right border-t md:border-t-0 md:border-l border-border-subtle pt-4 md:pt-0 md:pl-6 w-full md:w-auto shrink-0 space-y-1">
-          <p className="text-text-subtle text-xs font-medium">
-            Billed seats
-          </p>
-          <div className="flex md:justify-end items-baseline gap-1.5">
-            <p className="text-2xl font-bold tracking-tight tabular-nums text-text">
-              {totalSeats}
+          {/* Billed seats verified against workspace membership */}
+          <div className="md:text-right border-t md:border-t-0 md:border-l border-border-subtle/60 pt-4 md:pt-0 md:pl-6 w-full md:w-auto shrink-0 space-y-1">
+            <p className="text-text-subtle text-xs font-medium uppercase tracking-wider">
+              Billed seats
             </p>
-            <span className="text-xs text-text-subtler font-medium">
-              / {isSeatsUnlimited ? 'Unlimited' : (seatLimit ?? 'N/A')}
-            </span>
+            <div className="flex md:justify-end items-baseline gap-1.5">
+              <p className="text-3xl font-extrabold tracking-tight tabular-nums text-text">
+                {totalSeats}
+              </p>
+              <span className="text-xs text-text-subtle font-medium">
+                / {isSeatsUnlimited ? 'Unlimited' : (seatLimit ?? 'N/A')}
+              </span>
+            </div>
+            <p className="text-text-subtle text-xs">
+              {activeMembersCount} active
+              {pendingInvitesCount > 0 ? ` • ${pendingInvitesCount} invited` : ''}
+            </p>
           </div>
-          <p className="text-text-subtler text-xs">
-            {activeMembersCount} active
-            {pendingInvitesCount > 0 ? ` • ${pendingInvitesCount} invited` : ''}
-          </p>
         </div>
       </div>
 
-      {/* Usage Stats Grid - 3 Resource Quota Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {quotaCards.map((stat, i) => (
-          <div
-            key={i}
-            className="bg-card border border-border-subtle rounded-xl p-4 space-y-2.5"
-          >
-            <span className="text-xs font-medium text-text-subtle">
-              {stat.label}
-            </span>
-
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-2xl font-bold tracking-tight text-text">
-                {stat.used}
+      {/* 2. Plan Usage - Unified Section with 3 separated metrics */}
+      <div className="space-y-2">
+        <h3 className="text-xs font-semibold text-text-subtle px-1 uppercase tracking-wider">
+          Plan Usage
+        </h3>
+        <div className="bg-card border border-border-subtle rounded-xl p-4 sm:p-5 shadow-xs grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-border-subtle/50">
+          {quotaCards.map((stat, i) => (
+            <div
+              key={i}
+              className="py-3 sm:py-0 px-2 sm:px-5 first:pt-0 sm:first:pl-0 last:pb-0 sm:last:pr-0 flex flex-col justify-between gap-1.5"
+            >
+              <span className="text-xs font-medium text-text-subtle">
+                {stat.label}
               </span>
-              <span className="text-xs text-text-subtler font-medium">
-                / {stat.isUncapped ? 'Unlimited' : (stat.totalLimit ?? 'N/A')}
-              </span>
-            </div>
 
-            {/* Quota Progress Bar for capped tiers or text indicator */}
-            {!stat.isUncapped && stat.totalLimit && typeof stat.totalLimit === 'number' ? (
-              <div className="h-1.5 w-full bg-background-elevated rounded overflow-hidden">
-                <div
-                  className="h-full bg-primary/40 transition-all duration-500"
-                  style={{
-                    width: `${Math.min(100, Math.round(((stat.used || 0) / stat.totalLimit) * 100))}%`,
-                  }}
-                />
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-2xl font-bold tracking-tight text-text">
+                  {stat.used}
+                </span>
+                <span className="text-xs text-text-subtle font-medium">
+                  / {stat.isUncapped ? 'Unlimited' : (stat.totalLimit ?? 'N/A')}
+                </span>
               </div>
-            ) : (
-              <p className="text-xs text-text-subtler font-normal">
-                {stat.subtext}
-              </p>
-            )}
-          </div>
-        ))}
+
+              {/* Quota Progress Bar for capped tiers */}
+              {!stat.isUncapped && stat.totalLimit && typeof stat.totalLimit === 'number' ? (
+                <div className="h-1.5 w-full bg-background-elevated rounded overflow-hidden mt-1 border border-border-subtle/60">
+                  <div
+                    className="h-full bg-primary/70 transition-all duration-500 rounded-full"
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        Math.round(((stat.used || 0) / stat.totalLimit) * 100)
+                      )}%`,
+                    }}
+                  />
+                </div>
+              ) : null}
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* All Plans Grid */}
@@ -483,94 +495,143 @@ const AdminBilling = () => {
         </div>
       )}
 
-      {/* Payment Method */}
-      <div className="space-y-2.5">
-        <div className="flex justify-between items-center px-1">
-          <h3 className="text-xs font-semibold text-text-subtle">
-            Payment method
-          </h3>
-          <button
-            onClick={() => {
-              toast('Direct provisioning is active for this workspace. No card updates required.', {
-                icon: 'ℹ️',
-                style: {
-                  borderRadius: '10px',
-                  background: 'var(--color-background-elevated)',
-                  color: 'var(--color-text)',
-                  border: '1px solid var(--color-border-subtle)',
-                  fontSize: '13px',
-                },
-              });
-            }}
-            className="text-xs font-medium text-primary hover:underline cursor-pointer"
-          >
-            Update
-          </button>
-        </div>
-        <div className="bg-card border border-border-subtle rounded-xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:border-border transition-all">
-          <div className="flex items-center gap-3.5">
+      {/* 3. Payment Method - Settings-style Information Row */}
+      <div className="space-y-2">
+        <h3 className="text-xs font-semibold text-text-subtle px-1 uppercase tracking-wider">
+          Payment method
+        </h3>
+        <div className="bg-card border border-border-subtle rounded-xl p-4 sm:px-5 sm:py-3.5 shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:border-border transition-colors">
+          <div className="flex items-center gap-3.5 min-w-0">
             {subscription?.paymentMethod?.last4 ? (
               <>
-                <div className="w-12 h-7 bg-background-elevated border border-border-subtle rounded flex items-center justify-center text-xs font-semibold text-text capitalize">
+                <div className="w-11 h-7 bg-background-elevated border border-border-subtle rounded flex items-center justify-center text-xs font-semibold text-text uppercase shrink-0">
                   {subscription.paymentMethod.brand || 'Card'}
                 </div>
-                <div className="space-y-0.5">
-                  <p className="text-sm font-semibold tracking-wide text-text">
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-text">
                     •••• •••• •••• {subscription.paymentMethod.last4}
-                  </p>
-                  <p className="text-xs text-text-subtler font-normal">
-                    Expires {subscription.paymentMethod.expMonth || 'MM'}/
-                    {subscription.paymentMethod.expYear || 'YY'}
+                    <span className="text-text-subtle font-normal ml-2">
+                      (Expires {subscription.paymentMethod.expMonth || 'MM'}/
+                      {subscription.paymentMethod.expYear || 'YY'})
+                    </span>
                   </p>
                 </div>
               </>
             ) : (
               <>
-                <div className="w-10 h-7 bg-background-elevated border border-border-subtle rounded flex items-center justify-center text-xs font-medium text-text-subtler">
+                <div className="w-9 h-6 bg-background-elevated border border-border-subtle rounded flex items-center justify-center text-[10px] font-medium text-text-subtle shrink-0">
                   N/A
                 </div>
-                <div className="space-y-0.5">
-                  <p className="text-sm font-medium text-text">
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-text">
                     No payment method on file
                   </p>
-                  <p className="text-xs text-text-subtler font-normal">
+                  <p className="text-[11px] text-text-subtle font-normal">
                     Direct sandbox provisioning • No payment method required or billed
                   </p>
                 </div>
               </>
             )}
           </div>
-          <div className="sm:text-right border-t sm:border-t-0 border-border-subtle pt-3 sm:pt-0 w-full sm:w-auto">
-            <p className="text-sm font-medium text-text select-all">
-              {user?.email || 'N/A'}
-            </p>
-            <p className="text-xs text-text-subtler font-normal">
-              Billing contact email
-            </p>
+
+          <div className="flex items-center gap-4 sm:gap-6 w-full sm:w-auto justify-between sm:justify-end border-t sm:border-t-0 border-border-subtle/50 pt-2.5 sm:pt-0">
+            <div className="text-left sm:text-right">
+              <p className="text-xs font-medium text-text select-all">
+                {user?.email || 'N/A'}
+              </p>
+              <p className="text-[11px] text-text-subtle font-normal">
+                Billing contact email
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                toast(
+                  'Direct provisioning is active for this workspace. No card updates required.',
+                  {
+                    icon: 'ℹ️',
+                    style: {
+                      borderRadius: '10px',
+                      background: 'var(--color-background-elevated)',
+                      color: 'var(--color-text)',
+                      border: '1px solid var(--color-border-subtle)',
+                      fontSize: '13px',
+                    },
+                  }
+                );
+              }}
+              className="px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/10 rounded-md transition-colors cursor-pointer shrink-0"
+            >
+              Update
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Transaction History - Compact Empty State */}
-      <div className="space-y-2 pt-1">
+      {/* 4. Transaction History - Lightweight Table with Compact Empty State */}
+      <div className="space-y-2">
         <div className="px-1 flex justify-between items-center">
-          <h3 className="text-xs font-semibold text-text-subtle">
+          <h3 className="text-xs font-semibold text-text-subtle uppercase tracking-wider">
             Transaction history
           </h3>
-          <span className="text-xs font-medium text-text-subtler">
-            0 invoices
+          <span className="text-xs font-medium text-text-subtle">
+            {subscription?.invoices?.length || 0} invoices
           </span>
         </div>
-        <div className="bg-card border border-border-subtle rounded-lg px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-          <div className="flex items-center gap-2.5 text-text-subtle">
-            <FileText size={15} className="text-text-subtler shrink-0" />
-            <span className="text-text font-medium">No billing history recorded</span>
-            <span className="text-text-subtler hidden md:inline">• Invoices will appear here once billing is active</span>
+
+        {subscription?.invoices?.length > 0 ? (
+          <div className="bg-card border border-border-subtle rounded-xl overflow-hidden shadow-xs">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-border-subtle bg-background-elevated/40 text-text-subtle">
+                    <th className="py-2.5 px-4 font-semibold">Date</th>
+                    <th className="py-2.5 px-4 font-semibold">Invoice #</th>
+                    <th className="py-2.5 px-4 font-semibold">Amount</th>
+                    <th className="py-2.5 px-4 font-semibold">Status</th>
+                    <th className="py-2.5 px-4 font-semibold text-right">Invoice</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border-subtle/50">
+                  {subscription.invoices.map((inv, idx) => (
+                    <tr
+                      key={idx}
+                      className="hover:bg-background-elevated/40 transition-colors"
+                    >
+                      <td className="py-3 px-4 text-text font-medium">{inv.date}</td>
+                      <td className="py-3 px-4 text-text-subtle font-mono">{inv.id}</td>
+                      <td className="py-3 px-4 text-text font-medium">{inv.amount}</td>
+                      <td className="py-3 px-4">
+                        <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-status-success/10 text-status-success">
+                          {inv.status || 'Paid'}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <a
+                          href={inv.pdfUrl || '#'}
+                          className="text-primary hover:underline font-medium"
+                        >
+                          Download
+                        </a>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-          <span className="text-[11px] text-text-subtler self-start sm:self-auto">
-            No payment transactions or invoices have been billed for this workspace yet.
-          </span>
-        </div>
+        ) : (
+          <div className="bg-card border border-border-subtle rounded-xl px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs shadow-xs">
+            <div className="flex items-center gap-2.5 text-text-subtle">
+              <FileText size={15} className="text-text-subtle shrink-0" />
+              <span className="text-text font-medium">
+                No billing history recorded
+              </span>
+            </div>
+            <span className="text-[11px] text-text-subtle">
+              No payment transactions or invoices have been billed for this workspace yet.
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );

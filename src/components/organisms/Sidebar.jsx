@@ -13,6 +13,7 @@ import {
   Rocket,
   PlusSquare,
   Shield,
+  X,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { usePermissions, PERMISSIONS } from '../../hooks/usePermissions';
@@ -25,19 +26,29 @@ const Sidebar = ({ isOpen, onClose }) => {
   const location = useLocation();
   const title = user?.jobTitle?.toLowerCase() || '';
 
+  // Close sidebar on Escape key
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (location.pathname === '/pricing') return null;
 
   const navItems = [
     {
       name: title.includes('cto')
-        ? 'Executive Dashboard'
+        ? 'Dashboard'
         : title.includes('vp engineering')
           ? 'Ops Dashboard'
           : user?.role === 'ENGINEERING_MANAGER' ||
               title.includes('engineering manager')
             ? 'Team Overview'
             : user?.role === 'TECH_LEAD' || title.includes('tech lead')
-              ? 'Systems Health'
+              ? 'Dashboard'
               : title.includes('qa lead')
                 ? 'Quality Overview'
                 : user?.role === 'HR_MANAGER' ||
@@ -141,7 +152,7 @@ const Sidebar = ({ isOpen, onClose }) => {
         }}
       >
         <div
-          className="h-14 px-6 flex items-center shrink-0 border-b border-white/10"
+          className="h-14 px-6 flex items-center justify-between shrink-0 border-b border-white/10"
           style={{ borderColor: 'var(--color-border-subtle)' }}
         >
           <Link to="/" className="flex items-center group" aria-label="NexaSetu Home">
@@ -151,6 +162,14 @@ const Sidebar = ({ isOpen, onClose }) => {
               className="h-7 w-auto object-contain"
             />
           </Link>
+          <button
+            type="button"
+            onClick={onClose}
+            className="md:hidden p-1.5 text-text-subtle hover:text-text hover:bg-background-elevated rounded-md transition-colors cursor-pointer"
+            aria-label="Close sidebar"
+          >
+            <X size={18} />
+          </button>
         </div>
 
         <nav className="flex-1 mt-2 px-0 space-y-1 overflow-y-auto custom-scrollbar">
@@ -231,7 +250,7 @@ const Sidebar = ({ isOpen, onClose }) => {
               },
               {
                 name: 'Sprints',
-                path: '/project-info',
+                path: ROUTES.SPRINTS,
                 icon: <Rocket size={18} />,
               },
               {
@@ -306,7 +325,7 @@ const Sidebar = ({ isOpen, onClose }) => {
               <span className="transition-colors">
                 <UserPlus size={14} />
               </span>
-              Invite member
+              Invite Members
             </Link>
           )}
         </nav>

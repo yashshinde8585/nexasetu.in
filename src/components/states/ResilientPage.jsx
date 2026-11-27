@@ -1,4 +1,6 @@
 import React from 'react';
+import PropTypes from 'prop-types';
+import { AlertCircle, RotateCcw, LayoutDashboard } from 'lucide-react';
 import {
   AccessDenied,
   NotFound,
@@ -31,30 +33,58 @@ const ResilientPage = ({
       case 'server-error':
         return <ServerError onRetry={onRetry} />;
       default:
-        // Generic error fallback that is NOT the "System Integrity Compromised" screen
         return (
-          <div className="min-h-[60vh] flex flex-col items-center justify-center p-8 text-center animate-in fade-in">
-            <div className="w-1.5 h-12 bg-status-error mb-6 rounded-full" />
-            <h2 className="text-lg font-black text-white uppercase tracking-tight mb-2">
-              Sync Failure
-            </h2>
-            <p className="text-white/40 text-xs max-w-xs mb-8">
-              {error.message || 'The data uplink is currently unstable.'}
-            </p>
-            <button
-              onClick={onRetry || (() => window.location.reload())}
-              className="text-[10px] font-black text-primary uppercase tracking-[0.2em] hover:text-primary-light transition-colors"
-            >
-              Force Re-Sync
-            </button>
+          <div
+            role="alert"
+            aria-live="assertive"
+            className="min-h-[60vh] flex flex-col items-center justify-center p-6 sm:p-8 text-center max-w-md mx-auto space-y-4 animate-in fade-in"
+          >
+            <div className="w-12 h-12 rounded-full bg-status-error/10 border border-status-error/20 flex items-center justify-center text-status-error mb-1 shrink-0">
+              <AlertCircle size={24} />
+            </div>
+
+            <div className="space-y-1.5">
+              <h1 className="text-lg sm:text-xl font-bold text-text">
+                Something went wrong
+              </h1>
+              <p className="text-xs sm:text-sm text-text-subtle leading-relaxed">
+                {error.message || "We couldn't display this page. Please try again."}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={onRetry || (() => window.location.reload())}
+                className="h-9 px-4 bg-primary hover:bg-primary-hover text-white text-xs font-semibold rounded-xs transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+              >
+                <RotateCcw size={14} />
+                <span>Try again</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => (window.location.href = '/dashboard')}
+                className="h-9 px-4 border border-border-subtle bg-background-elevated hover:bg-card text-text text-xs font-semibold rounded-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <LayoutDashboard size={14} />
+                <span>Go to Dashboard</span>
+              </button>
+            </div>
           </div>
         );
     }
   }
 
-  // Ensure children only render if data is likely present
-  // This prevents crashes from "cannot read property of undefined"
   return <>{children}</>;
+};
+
+ResilientPage.propTypes = {
+  isLoading: PropTypes.bool,
+  error: PropTypes.object,
+  children: PropTypes.node,
+  loadingMessage: PropTypes.string,
+  onRetry: PropTypes.func,
 };
 
 export default ResilientPage;

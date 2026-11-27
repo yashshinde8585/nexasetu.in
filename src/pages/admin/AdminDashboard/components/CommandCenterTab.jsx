@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '../../../../constants';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../../../context/AuthContext';
 import SprintService from '../../../../api/sprintApi';
@@ -447,7 +448,7 @@ const CommandCenterTab = ({
               )}
             </div>
             <button
-              onClick={() => navigate('/project-info')}
+              onClick={() => navigate(ROUTES.SPRINTS)}
               className="text-xs font-semibold text-primary hover:underline cursor-pointer flex items-center gap-1"
             >
               <span>View sprint</span>
@@ -767,7 +768,7 @@ const CommandCenterTab = ({
               </span>
             </div>
             <span
-              onClick={() => navigate('/project-info')}
+              onClick={() => navigate(ROUTES.SPRINTS)}
               className="text-xs font-semibold text-primary hover:underline cursor-pointer"
             >
               Full schedule
@@ -873,7 +874,7 @@ const CommandCenterTab = ({
               </span>
             </div>
             <button
-              onClick={() => navigate('/project-info')}
+              onClick={() => navigate(ROUTES.SPRINTS)}
               className="text-xs font-semibold text-primary hover:underline cursor-pointer flex items-center gap-1"
             >
               <span>View all</span>
@@ -906,7 +907,7 @@ const CommandCenterTab = ({
                     return (
                       <tr
                         key={stableKey}
-                        onClick={() => navigate(item.id || item._id ? `/project/${item.id || item._id}` : '/project-info')}
+                        onClick={() => navigate(item.id || item._id ? `/project/${item.id || item._id}` : ROUTES.SPRINTS)}
                         className="hover:bg-background-elevated/40 transition-colors border-b border-border-subtler/40 last:border-0 cursor-pointer group"
                       >
                         <td className="py-2.5 text-[13px] font-medium text-text truncate max-w-[140px] group-hover:text-primary transition-colors">
@@ -1084,7 +1085,7 @@ const CommandCenterTab = ({
 
               {/* Action 4: View Reports */}
               <button
-                onClick={() => navigate('/project-info')}
+                onClick={() => navigate(ROUTES.SPRINTS)}
                 className="flex items-center gap-3 border border-border-subtle hover:border-border bg-background-elevated/30 hover:bg-background-elevated/60 p-3 transition-all cursor-pointer group text-left rounded-sm"
               >
                 <div className="w-9 h-9 rounded-xs bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 text-primary group-hover:scale-105 transition-transform">
