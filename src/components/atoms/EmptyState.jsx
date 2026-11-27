@@ -3,21 +3,21 @@ import { Box } from 'lucide-react';
 
 const EmptyState = ({
   icon: Icon = Box,
-  title = 'NO_DATA_FOUND',
-  message = 'SYSTEM DETECTED AN EMPTY SECTOR. PLEASE INITIALIZE CONTENT.',
+  title = 'No items found',
+  message = 'There are no items to display in this view.',
   action = null,
 }) => {
   return (
-    <div className="py-20 text-center bg-white/5 border border-dashed border-white/10 rounded-xl">
-      <div className="flex justify-center mb-6">
-        <div className="p-4 bg-white/5 rounded-full border border-white/10">
-          <Icon size={32} className="text-white/20" />
+    <div className="py-12 sm:py-16 px-4 text-center bg-background-elevated/40 border border-dashed border-border-subtle rounded-md">
+      <div className="flex justify-center mb-4">
+        <div className="p-3.5 bg-background-elevated rounded-full border border-border-subtle inline-flex items-center justify-center">
+          <Icon size={28} className="text-text-subtler" />
         </div>
       </div>
-      <h3 className="text-lg font-black text-white uppercase tracking-tight mb-2">
+      <h3 className="text-sm sm:text-base font-semibold text-text mb-1.5">
         {title}
       </h3>
-      <p className="text-white/40 text-[9px] font-black uppercase tracking-[0.2em] max-w-xs mx-auto leading-relaxed mb-6">
+      <p className="text-xs text-text-subtle max-w-sm mx-auto leading-relaxed mb-5">
         {message}
       </p>
       {action && <div className="flex justify-center">{action}</div>}

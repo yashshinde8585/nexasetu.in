@@ -131,7 +131,7 @@ const JREDashboard = () => {
 
       <div className="flex-1">
         {activeTab === 'overview' && (
-          <ErrorBoundary>
+          <ErrorBoundary scope="component" resetKeys={[activeTab]}>
             <div className="flex flex-col gap-4 animate-fade-in">
               <JREMetricsGrid
                 sprintProgress={sprintProgress}
@@ -161,7 +161,7 @@ const JREDashboard = () => {
         )}
 
         {activeTab === 'my_work' && (
-          <ErrorBoundary>
+          <ErrorBoundary scope="component" resetKeys={[activeTab]}>
             <MyWorkTab
               inProgressTasks={inProgressTasks}
               handleStatusUpdate={handleStatusUpdate}
@@ -170,13 +170,13 @@ const JREDashboard = () => {
         )}
 
         {activeTab === 'learn' && (
-          <ErrorBoundary>
+          <ErrorBoundary scope="component" resetKeys={[activeTab]}>
             <LearnTab learningLessons={learningLessons} />
           </ErrorBoundary>
         )}
 
         {activeTab === 'code' && (
-          <ErrorBoundary>
+          <ErrorBoundary scope="component" resetKeys={[activeTab]}>
             <CodeTab
               codeQuality={codeQuality}
               pullRequestsList={pullRequestsList}
@@ -185,13 +185,13 @@ const JREDashboard = () => {
         )}
 
         {activeTab === 'feedback' && (
-          <ErrorBoundary>
+          <ErrorBoundary scope="component" resetKeys={[activeTab]}>
             <FeedbackTab />
           </ErrorBoundary>
         )}
 
         {activeTab === 'insights' && (
-          <ErrorBoundary>
+          <ErrorBoundary scope="component" resetKeys={[activeTab]}>
             <InsightsTab aiInsights={aiInsights} />
           </ErrorBoundary>
         )}

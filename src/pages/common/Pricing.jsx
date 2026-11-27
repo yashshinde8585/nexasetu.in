@@ -19,12 +19,12 @@ const Pricing = () => {
 
       <div className="max-w-6xl mx-auto">
         {/* Compact Header Section */}
-        <div className="mb-12 border-b border-white/5 pb-8">
-          <div className="space-y-3">
-            <h1 className="text-4xl md:text-5xl font-black text-white tracking-tighter">
+        <div className="mb-8 border-b border-border-subtle pb-6">
+          <div className="space-y-2">
+            <h1 className="text-2xl sm:text-3xl font-bold text-text tracking-tight">
               Pricing & Plans
             </h1>
-            <p className="text-white/40 text-xs md:text-sm max-w-xl font-medium leading-relaxed">
+            <p className="text-text-subtle text-xs sm:text-sm max-w-xl font-normal leading-relaxed">
               Select a capacity tier to finalize your workspace deployment.
               Instant activation. Zero setup fees.
             </p>
@@ -37,15 +37,15 @@ const Pricing = () => {
         </div>
 
         {/* Minimal Footer Info */}
-        <div className="mt-16 flex flex-wrap justify-center gap-x-12 gap-y-6 text-[10px] font-bold uppercase tracking-[0.2em] text-white/20">
+        <div className="mt-12 flex flex-wrap justify-center gap-x-8 gap-y-4 text-xs font-medium uppercase tracking-wider text-text-subtle">
           <div className="flex items-center gap-2">
-            <Shield size={14} /> Enterprise Grade Security
+            <Shield size={14} className="text-primary" /> Enterprise Grade Security
           </div>
           <div className="flex items-center gap-2">
-            <Zap size={14} /> Instant Provisioning
+            <Zap size={14} className="text-primary" /> Instant Provisioning
           </div>
           <div className="flex items-center gap-2">
-            <Globe size={14} /> Global Distribution
+            <Globe size={14} className="text-primary" /> Global Distribution
           </div>
         </div>
       </div>

@@ -1305,10 +1305,14 @@ const SEDashboard = () => {
 
       {/* Main Tab Panel Routing Router */}
       <div className="flex-1">
-        {activeTab === 'Overview' && renderOverview()}
+        {activeTab === 'Overview' && (
+          <ErrorBoundary scope="component" resetKeys={[activeTab]}>
+            {renderOverview()}
+          </ErrorBoundary>
+        )}
 
         {activeTab === 'My Work' && (
-          <ErrorBoundary>
+          <ErrorBoundary scope="component" resetKeys={[activeTab]}>
             <MyWorkTab
               filteredMyTasks={myTasks}
               handleUpdateStatus={handleUpdateStatus}
@@ -1318,13 +1322,13 @@ const SEDashboard = () => {
         )}
 
         {activeTab === 'Code' && (
-          <ErrorBoundary>
+          <ErrorBoundary scope="component" resetKeys={[activeTab]}>
             <CodeTab myVelocity={myVelocity} myCodeImpact={myCodeImpact} />
           </ErrorBoundary>
         )}
 
         {activeTab === 'Pull Requests' && (
-          <ErrorBoundary>
+          <ErrorBoundary scope="component" resetKeys={[activeTab]}>
             <PRsTab
               pullRequestMetrics={pullRequestMetrics}
               pullRequestsList={pullRequestsList}
@@ -1333,19 +1337,19 @@ const SEDashboard = () => {
         )}
 
         {activeTab === 'Quality' && (
-          <ErrorBoundary>
+          <ErrorBoundary scope="component" resetKeys={[activeTab]}>
             <QualityTab codeQuality={codeQuality} />
           </ErrorBoundary>
         )}
 
         {activeTab === 'Deployments' && (
-          <ErrorBoundary>
+          <ErrorBoundary scope="component" resetKeys={[activeTab]}>
             <DeploymentsTab deployments={deployments} />
           </ErrorBoundary>
         )}
 
         {activeTab === 'Insights' && (
-          <ErrorBoundary>
+          <ErrorBoundary scope="component" resetKeys={[activeTab]}>
             <InsightsTab aiInsights={aiInsights} />
           </ErrorBoundary>
         )}

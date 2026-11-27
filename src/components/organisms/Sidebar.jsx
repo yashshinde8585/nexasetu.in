@@ -13,6 +13,7 @@ import {
   Rocket,
   PlusSquare,
   Shield,
+  X,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { usePermissions, PERMISSIONS } from '../../hooks/usePermissions';
@@ -25,19 +26,29 @@ const Sidebar = ({ isOpen, onClose }) => {
   const location = useLocation();
   const title = user?.jobTitle?.toLowerCase() || '';
 
+  // Close sidebar on Escape key
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (location.pathname === '/pricing') return null;
 
   const navItems = [
     {
       name: title.includes('cto')
-        ? 'Executive Dashboard'
+        ? 'Dashboard'
         : title.includes('vp engineering')
           ? 'Ops Dashboard'
           : user?.role === 'ENGINEERING_MANAGER' ||
               title.includes('engineering manager')
             ? 'Team Overview'
             : user?.role === 'TECH_LEAD' || title.includes('tech lead')
-              ? 'Systems Health'
+              ? 'Dashboard'
               : title.includes('qa lead')
                 ? 'Quality Overview'
                 : user?.role === 'HR_MANAGER' ||
@@ -107,7 +118,16 @@ const Sidebar = ({ isOpen, onClose }) => {
       permission: PERMISSIONS.MANAGE_BILLING,
       disabled: false,
     },
-  ].filter(
+    {
+      name: 'Settings',
+      path: ROUTES.SETTINGS,
+      icon: <Settings size={20} />,
+      permission: PERMISSIONS.MANAGE_ROLES,
+      disabled: false,
+    },
+  ]
+    .filter(Boolean)
+    .filter(
     (item) =>
       (!item.permission || hasPermission(item.permission)) && !item.hidden
   );
@@ -131,67 +151,91 @@ const Sidebar = ({ isOpen, onClose }) => {
           borderColor: 'var(--color-border-subtle)',
         }}
       >
-        <div className="p-6 shrink-0">
-          <Link to="/" className="flex items-center gap-3 group">
-            <span
-              className="text-[12px] font-black tracking-[0.2em] text-white uppercase"
-              style={{ color: 'var(--color-text)' }}
-            >
-              NEXASETU
-            </span>
+        <div
+          className="h-14 px-6 flex items-center justify-between shrink-0 border-b border-white/10"
+          style={{ borderColor: 'var(--color-border-subtle)' }}
+        >
+          <Link to="/" className="flex items-center group" aria-label="NexaSetu Home">
+            <img
+              src="/Logo.svg"
+              alt="NexaSetu"
+              className="h-7 w-auto object-contain"
+            />
           </Link>
+          <button
+            type="button"
+            onClick={onClose}
+            className="md:hidden p-1.5 text-text-subtle hover:text-text hover:bg-background-elevated rounded-md transition-colors cursor-pointer"
+            aria-label="Close sidebar"
+          >
+            <X size={18} />
+          </button>
         </div>
 
         <nav className="flex-1 mt-2 px-0 space-y-1 overflow-y-auto custom-scrollbar">
           <div
-            className="text-[10px] font-black text-white/50 uppercase tracking-[0.2em] px-6 mb-4"
+            className="text-xs font-semibold text-white/60 uppercase tracking-wider px-6 mb-2"
             style={{ color: 'var(--color-text-subtle)' }}
           >
             Workspace
           </div>
-          {navItems.map((item) => (
-            <NavLink
-              key={item.name}
-              to={item.path}
-              className={({ isActive }) =>
-                `relative flex items-center gap-3 px-6 h-9 text-[10px] font-black tracking-[0.2em] uppercase transition-all group ${
-                  item.disabled
-                    ? 'opacity-40 cursor-not-allowed'
-                    : isActive
-                      ? 'text-white bg-white/5'
-                      : 'text-white/40 hover:text-white hover:bg-white/5'
-                }`
-              }
-              onClick={(e) => {
-                if (item.disabled) e.preventDefault();
-                else onClose();
-              }}
-            >
-              {({ isActive }) => (
-                <>
-                  {!item.disabled && isActive && (
-                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary" />
-                  )}
+          {navItems.map((item) => {
+            const isCustomActive =
+              item.path === ROUTES.SETTINGS
+                ? location.pathname === ROUTES.SETTINGS ||
+                  location.pathname === '/admin/settings'
+                : undefined;
 
-                  <span
-                    className={`transition-all ${
-                      !item.disabled && isActive
-                        ? 'text-primary'
-                        : 'text-white/20 group-hover:text-white/50'
-                    }`}
-                  >
-                    {item.icon}
-                  </span>
+            return (
+              <NavLink
+                key={item.name}
+                to={item.path}
+                className={({ isActive: navIsActive }) => {
+                  const isActive =
+                    isCustomActive !== undefined ? isCustomActive : navIsActive;
+                  return `relative flex items-center gap-3 px-6 h-9 text-[13px] font-medium tracking-wide transition-all group ${
+                    item.disabled
+                      ? 'opacity-40 cursor-not-allowed'
+                      : isActive
+                        ? 'text-primary bg-primary/10 font-semibold'
+                        : 'text-text-muted hover:text-text hover:bg-background-elevated/50'
+                  }`;
+                }}
+                onClick={(e) => {
+                  if (item.disabled) e.preventDefault();
+                  else onClose();
+                }}
+              >
+                {({ isActive: navIsActive }) => {
+                  const isActive =
+                    isCustomActive !== undefined ? isCustomActive : navIsActive;
+                  return (
+                    <>
+                      {!item.disabled && isActive && (
+                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary" />
+                      )}
 
-                  {item.name}
-                </>
-              )}
-            </NavLink>
-          ))}
+                      <span
+                        className={`transition-all ${
+                          !item.disabled && isActive
+                            ? 'text-primary'
+                            : 'text-white/40 group-hover:text-white/70'
+                        }`}
+                      >
+                        {item.icon}
+                      </span>
 
-          <div className="pt-6">
+                      {item.name}
+                    </>
+                  );
+                }}
+              </NavLink>
+            );
+          })}
+
+          <div className="pt-4">
             <div
-              className="text-[10px] font-black text-white/50 uppercase tracking-[0.2em] px-6 mb-4"
+              className="text-xs font-semibold text-white/60 uppercase tracking-wider px-6 mb-2"
               style={{ color: 'var(--color-text-subtle)' }}
             >
               Management
@@ -206,7 +250,7 @@ const Sidebar = ({ isOpen, onClose }) => {
               },
               {
                 name: 'Sprints',
-                path: '/project-info',
+                path: ROUTES.SPRINTS,
                 icon: <Rocket size={18} />,
               },
               {
@@ -241,25 +285,25 @@ const Sidebar = ({ isOpen, onClose }) => {
                   to={item.path}
                   onClick={item.disabled ? (e) => e.preventDefault() : onClose}
                   className={({ isActive }) =>
-                    `relative flex items-center gap-3 px-6 h-9 text-[10px] font-black tracking-[0.2em] uppercase transition-all group ${
+                    `relative flex items-center gap-3 px-6 h-9 text-[13px] font-medium tracking-wide transition-all group ${
                       item.disabled
                         ? 'opacity-40 cursor-not-allowed'
                         : isActive
-                          ? 'text-white bg-white/5'
-                          : 'text-white/40 hover:text-white hover:bg-white/5'
+                          ? 'text-primary bg-primary/10 font-semibold'
+                          : 'text-text-muted hover:text-text hover:bg-background-elevated/50'
                     }`
                   }
                 >
                   {({ isActive }) => (
                     <>
                       {isActive && (
-                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-secondary" />
+                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary" />
                       )}
                       <span
                         className={`transition-all ${
                           isActive
-                            ? 'text-secondary'
-                            : 'text-white/20 group-hover:text-white/50'
+                            ? 'text-primary'
+                            : 'text-text-subtler group-hover:text-text-muted'
                         }`}
                       >
                         {item.icon}
@@ -271,17 +315,17 @@ const Sidebar = ({ isOpen, onClose }) => {
               ))}
           </div>
 
-          {/* Invite Member - Orchestrator Level Only */}
+          {/* Invite Member */}
           {canInvite && (
             <Link
               to="/team/add"
               onClick={onClose}
-              className="w-full flex items-center gap-3 px-6 h-9 text-[10px] font-black tracking-[0.2em] uppercase text-primary hover:text-black hover:bg-primary transition-all group mt-4 border-t border-white/5 pt-2 mb-4"
+              className="w-full flex items-center gap-3 px-6 h-9 text-[13px] font-medium tracking-wide text-primary hover:bg-primary/10 transition-all group mt-3 border-t border-border-subtler pt-2 mb-4"
             >
               <span className="transition-colors">
                 <UserPlus size={14} />
               </span>
-              INVITE_COLLEAGUE
+              Invite Members
             </Link>
           )}
         </nav>

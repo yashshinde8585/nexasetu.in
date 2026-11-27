@@ -16,7 +16,13 @@ const attempt = async (fn, label) => {
 const useNotifications = (pollInterval = 60000) => {
   const queryClient = useQueryClient();
 
-  const { data: notifications = [], isLoading: loading } = useQuery({
+  const {
+    data: notifications = [],
+    isLoading: loading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ['notifications'],
     queryFn: () =>
       NotificationService.getMyNotifications().then(
@@ -70,6 +76,9 @@ const useNotifications = (pollInterval = 60000) => {
   return {
     notifications,
     loading,
+    isError,
+    error,
+    refetch,
     unreadCount,
     markAsRead,
     markAllAsRead,

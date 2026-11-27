@@ -104,7 +104,7 @@ const ProjectHealthSummary = ({ sprintId, manualTrigger = false }) => {
                 <AlertCircle size={14} /> {error}
               </p>
             ) : data ? (
-              <div className="prose-epi text-base sm:text-lg font-medium text-white/80 leading-relaxed">
+              <div className="nexa-prose text-sm text-text leading-relaxed">
                 <LazyMarkdown>{data.narrative}</LazyMarkdown>
               </div>
             ) : manualTrigger && !hasInitialized ? (

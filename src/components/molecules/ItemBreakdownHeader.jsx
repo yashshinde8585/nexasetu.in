@@ -1,67 +1,95 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 import { Activity, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
 
-const ItemBreakdownHeader = ({ metrics, statsLoading }) => {
+const ItemBreakdownHeader = ({ metrics = {}, statsLoading = false }) => {
   const items = [
     {
-      label: 'Open',
-      count: metrics.open,
+      label: 'To Do',
+      altLabel: 'Open',
+      count: metrics?.open ?? 0,
       icon: <AlertCircle size={14} />,
-      color: 'text-status-error',
-      bg: 'bg-status-error/10',
+      color: 'text-text-subtle',
+      accentColor: 'text-text',
+      bg: 'bg-background-elevated border-border-subtle',
+      description: 'Tasks ready to be started',
     },
     {
       label: 'In Progress',
-      count: metrics.active,
+      altLabel: 'Active',
+      count: metrics?.active ?? 0,
       icon: <Activity size={14} />,
       color: 'text-status-warning',
-      bg: 'bg-status-warning/10',
+      accentColor: 'text-status-warning',
+      bg: 'bg-status-warning/10 border-status-warning/20',
+      description: 'Tasks currently in development',
     },
     {
       label: 'In Review',
-      count: metrics.review,
+      altLabel: 'Review',
+      count: metrics?.review ?? 0,
       icon: <Clock size={14} />,
       color: 'text-secondary',
-      bg: 'bg-secondary/10',
+      accentColor: 'text-secondary',
+      bg: 'bg-secondary/10 border-secondary/20',
+      description: 'Tasks awaiting code review or QA',
     },
     {
-      label: 'Completed',
-      count: metrics.completed,
+      label: 'Done',
+      altLabel: 'Completed',
+      count: metrics?.completed ?? 0,
       icon: <CheckCircle2 size={14} />,
       color: 'text-status-success',
-      bg: 'bg-status-success/10',
+      accentColor: 'text-status-success',
+      bg: 'bg-status-success/10 border-status-success/20',
+      description: 'Tasks verified and delivered',
     },
   ];
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 w-full">
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 w-full">
       {items.map((item, idx) => (
         <div
           key={idx}
-          className="bg-white/5 border border-white/5 rounded-2xl p-4 flex flex-col justify-between group hover:bg-white/10 hover:border-white/10 transition-all cursor-default"
+          className="bg-background-elevated border border-border-subtle rounded-md p-2.5 sm:p-3.5 flex flex-col justify-between hover:border-border transition-colors cursor-default min-w-0"
+          title={item.description}
         >
-          <div className="flex justify-between items-start mb-2">
-            <span className="text-[9px] font-black uppercase tracking-widest text-text-muted/60 group-hover:text-text-muted transition-colors opacity-60">
+          <div className="flex justify-between items-center mb-1.5 sm:mb-2 gap-1">
+            <span className="text-xs font-semibold text-text-subtle truncate">
               {item.label}
+              <span className="text-text-subtler text-[11px] font-normal ml-1 hidden sm:inline">
+                ({item.altLabel})
+              </span>
             </span>
-            <div className={`p-1.5 rounded-lg ${item.bg} ${item.color}`}>
+            <div className={`p-1 rounded-md border shrink-0 ${item.bg} ${item.color}`}>
               {item.icon}
             </div>
           </div>
           <div className="flex items-baseline gap-1.5">
             <span
-              className={`text-2xl font-black ${item.color} ${statsLoading ? 'animate-pulse' : ''}`}
+              className={`text-lg sm:text-xl font-bold ${item.accentColor} ${statsLoading ? 'animate-pulse' : ''}`}
             >
-              {item.count}
+              {typeof item.count === 'number' ? item.count : 'N/A'}
             </span>
-            <span className="text-[9px] font-bold text-text-muted/30 uppercase tracking-tighter">
-              Tasks
+            <span className="text-[11px] font-medium text-text-subtler">
+              tasks
             </span>
           </div>
         </div>
       ))}
     </div>
   );
+};
+
+ItemBreakdownHeader.propTypes = {
+  metrics: PropTypes.shape({
+    open: PropTypes.number,
+    active: PropTypes.number,
+    review: PropTypes.number,
+    completed: PropTypes.number,
+    total: PropTypes.number,
+  }),
+  statsLoading: PropTypes.bool,
 };
 
 export default ItemBreakdownHeader;

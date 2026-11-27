@@ -1,24 +1,29 @@
 import React from 'react';
 
-// Status dot indicator component.
-const StatusIndicator = ({ color, label }) => {
+// Status indicator with semantic dot and optional label
+const StatusIndicator = ({ color = 'default', label, showLabel = false }) => {
   const colors = {
-    red: 'bg-status-error',
-    yellow: 'bg-status-warning',
-    green: 'bg-status-success',
-    default: 'bg-white/20',
+    red: { dot: 'bg-status-error', text: 'text-status-error', defaultLabel: 'Critical' },
+    yellow: { dot: 'bg-status-warning', text: 'text-status-warning', defaultLabel: 'At risk' },
+    green: { dot: 'bg-status-success', text: 'text-status-success', defaultLabel: 'Healthy' },
+    neutral: { dot: 'bg-text-subtler/40', text: 'text-text-subtle', defaultLabel: 'No activity' },
+    no_data: { dot: 'bg-text-subtler/40', text: 'text-text-subtle', defaultLabel: 'No data' },
+    default: { dot: 'bg-text-subtler/40', text: 'text-text-subtle', defaultLabel: 'N/A' },
   };
 
-  const statusColor = colors[color] || colors.default;
+  const config = colors[color] || colors.default;
+  const displayText = label || config.defaultLabel;
 
   return (
-    <div className="flex items-center gap-2">
-      <div
-        className={`w-1.5 h-1.5 rounded-none ${statusColor}`}
+    <div className="inline-flex items-center gap-1.5">
+      <span
+        className={`w-2 h-2 rounded-full ${config.dot} shrink-0`}
         aria-hidden="true"
       />
-      {(label || color) && (
-        <span className="sr-only">Status: {label || color}</span>
+      {(showLabel || label) && (
+        <span className={`text-xs font-medium ${config.text}`}>
+          {displayText}
+        </span>
       )}
     </div>
   );

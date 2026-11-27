@@ -14,7 +14,7 @@ import { ROUTES } from './constants';
 import ErrorBoundary from './components/atoms/ErrorBoundary';
 
 const App = () => {
-  const { user, loading, authReady, loadingMessage } = useAuth();
+  const { user, authReady } = useAuth();
   const { subscription, isLoading: billingLoading } = useBilling();
   const location = useLocation();
 
@@ -103,20 +103,18 @@ const App = () => {
   if (!authReady || (user && billingLoading)) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-8 overflow-hidden">
-        <div className="relative mb-12">
-          <div className="absolute inset-0 bg-primary/10 blur-[100px] animate-pulse rounded-full"></div>
-          <div className="absolute inset-0 bg-primary/5 blur-[40px] rounded-full"></div>
+        <div className="relative mb-8">
           <Loader2
-            className="animate-spin text-primary relative z-10 opacity-80"
-            size={56}
-            strokeWidth={1}
+            className="animate-spin text-primary relative z-10"
+            size={48}
+            strokeWidth={1.5}
           />
         </div>
-        <div className="text-center space-y-2 animate-in fade-in zoom-in duration-500">
-          <h2 className="text-white font-bold tracking-tight text-xl">
+        <div className="text-center space-y-2 animate-in fade-in duration-500">
+          <h2 className="text-text font-bold tracking-tight text-xl">
             NEXASETU
           </h2>
-          <p className="text-white/60 text-xs font-normal tracking-wide">
+          <p className="text-text-subtle text-xs font-normal">
             Getting your workspace ready...
           </p>
         </div>
@@ -144,7 +142,7 @@ const App = () => {
       <Suspense fallback={isPublicPage ? null : <DashboardSkeleton />}>
         <Routes>
           {/* Public Routes */}
-          {publicRoutes.map(({ path, component: Component, exact }) => (
+          {publicRoutes.map(({ path, component: Component }) => (
             <Route
               key={path}
               path={path}
@@ -155,7 +153,7 @@ const App = () => {
                 user ? (
                   <Navigate to={homeRedirect} replace />
                 ) : (
-                  <ErrorBoundary>
+                  <ErrorBoundary scope="page" resetKeys={[location.pathname]}>
                     <Component />
                   </ErrorBoundary>
                 )
@@ -183,7 +181,7 @@ const App = () => {
                     titles={titles}
                     fallback={fallback}
                   >
-                    <ErrorBoundary>
+                    <ErrorBoundary scope="page" resetKeys={[location.pathname]}>
                       <Component />
                     </ErrorBoundary>
                   </ProtectedRoute>
@@ -196,6 +194,18 @@ const App = () => {
           <Route
             path="/team"
             element={<Navigate to={ROUTES.TEAMS} replace />}
+          />
+          <Route
+            path="/project-info"
+            element={
+              <Navigate
+                to={{
+                  pathname: ROUTES.SPRINTS,
+                  search: location.search,
+                }}
+                replace
+              />
+            }
           />
           <Route
             path="*"

@@ -55,9 +55,13 @@ const HRDashboard = lazy(
   () => import('../pages/dashboards/support/HRDashboard')
 );
 const AdminDashboard = lazy(() => import('../pages/admin/AdminDashboard'));
+const SuperAdminDashboard = lazy(
+  () => import('../pages/admin/SuperAdminDashboard')
+);
 const CreateTeam = lazy(() => import('../pages/teams/CreateTeam'));
 const EditTeam = lazy(() => import('../pages/teams/EditTeam'));
 const AdminBilling = lazy(() => import('../pages/admin/AdminBilling'));
+const AdminSettings = lazy(() => import('../pages/admin/AdminSettings'));
 const ForgotPassword = lazy(() => import('../pages/auth/ForgotPassword'));
 const ResetPassword = lazy(() => import('../pages/auth/ResetPassword'));
 
@@ -88,9 +92,9 @@ export const privateRoutes = [
     title: 'Project Team',
   },
   {
-    path: '/project-info',
+    path: ROUTES.SPRINTS,
     component: ProjectInfo,
-    title: 'Project Information',
+    title: 'Sprints',
   },
   { path: ROUTES.DASHBOARD, component: Dashboard, title: 'General Dashboard' },
   {
@@ -126,14 +130,14 @@ export const privateRoutes = [
     component: AddTeamMember,
     permission: PERMISSIONS.INVITE_USERS,
     fallback: ROUTES.TEAMS,
-    title: 'Invite Team Member',
+    title: 'Invite Team Members',
   },
   {
     path: '/project-setup',
     component: ProjectSetup,
     permission: PERMISSIONS.CREATE_PROJECT,
     fallback: ROUTES.DASHBOARD,
-    title: 'Create Project Workspace',
+    title: 'Create Project',
   },
 
   // Role-based Multi-Dashboards
@@ -236,6 +240,13 @@ export const privateRoutes = [
     title: 'Workspace Admin Panel',
   },
   {
+    path: ROUTES.SUPER_ADMIN,
+    component: SuperAdminDashboard,
+    roles: ['SUPER_ADMIN', 'WORKSPACE_ADMIN'],
+    titles: ['super admin', 'superadmin', 'workspace administrator'],
+    title: 'Super Admin Console',
+  },
+  {
     path: '/admin/teams/create',
     component: CreateTeam,
     roles: ['WORKSPACE_ADMIN'],
@@ -252,5 +263,17 @@ export const privateRoutes = [
     component: AdminBilling,
     roles: ['WORKSPACE_ADMIN', 'WORKSPACE_MANAGER'],
     title: 'Billing & Quota Settings',
+  },
+  {
+    path: ROUTES.SETTINGS,
+    component: AdminSettings,
+    roles: ['WORKSPACE_ADMIN'],
+    title: 'Workspace Settings',
+  },
+  {
+    path: '/admin/settings',
+    component: AdminSettings,
+    roles: ['WORKSPACE_ADMIN'],
+    title: 'Workspace Settings',
   },
 ];

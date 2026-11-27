@@ -10,21 +10,26 @@ import {
   AlertCircle,
   Loader2,
   MoreVertical,
+  Shield,
   ShieldCheck,
   Plus,
   Download,
   RefreshCw,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Info,
   CheckCircle,
   AlertTriangle,
   UserMinus,
+  UserCheck,
   Check,
   Users,
+  Zap,
+  ArrowLeft,
+  X,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { ResponsiveContainer, AreaChart, Area } from 'recharts';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
 // Context & Services
@@ -35,10 +40,17 @@ import AdminService from '../../api/adminApi';
 import { USER_ROLES } from '../../constants';
 import { usePermissions, PERMISSIONS } from '../../hooks/usePermissions';
 import { useDebounce } from '../../hooks/useDebounce';
+import { useAdminDashboard } from '../../hooks/useAdminDashboard';
 
-// Atomic Components
+// Atomic Components & Modals
 import Skeleton from '../../components/atoms/Skeleton';
 import TacticalModal from '../../components/molecules/TacticalModal';
+import { ActionPortalMenu, ActionSubmenuPortal } from '../../components/molecules/ActionPortalMenu';
+import UserEditModal from '../../components/organisms/admin/UserEditModal';
+
+// Modular Admin Team Management Tabs
+import UserDirectoryTab from '../admin/AdminDashboard/components/UserDirectoryTab';
+import SquadDirectiveTab from '../admin/AdminDashboard/components/SquadDirectiveTab';
 
 const TeamSkeleton = () => (
   <div className="max-w-screen-2xl mx-auto px-4 lg:px-6 py-6 space-y-6 bg-background min-h-screen">
@@ -52,14 +64,14 @@ const TeamSkeleton = () => (
         <Skeleton className="h-9 w-32" />
       </div>
     </div>
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
-      {[1, 2, 3, 4, 5, 6].map((i) => (
-        <Skeleton key={i} className="h-28 w-full rounded-xl" />
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {[1, 2, 3].map((i) => (
+        <Skeleton key={i} className="h-20 w-full rounded-sm" />
       ))}
     </div>
     <div className="space-y-4">
       <Skeleton className="h-4 w-40" />
-      <Skeleton className="h-[400px] w-full rounded-xl" />
+      <Skeleton className="h-64 w-full rounded-sm" />
     </div>
   </div>
 );
@@ -75,15 +87,18 @@ const Team = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
   const debouncedSearch = useDebounce(searchTerm, 300);
 
   // UI & Loading States
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [lastUpdated, setLastUpdated] = useState(new Date());
-  const [activeDropdownId, setActiveDropdownId] = useState(null);
-  const [activeProjectMenuId, setActiveProjectMenuId] = useState(null);
+  const [menuAnchor, setMenuAnchor] = useState(null); // { item, triggerEl }
+  const [isSubmenuOpen, setIsSubmenuOpen] = useState(false);
+  const [submenuTriggerEl, setSubmenuTriggerEl] = useState(null);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+  const [expandedMemberId, setExpandedMemberId] = useState(null);
   const [actionLoading, setActionLoading] = useState({
     updating: null,
   });
@@ -104,10 +119,131 @@ const Team = () => {
     user?.assignedProjectId?._id ||
     user?.assignedProjectId;
 
-  // Reset page to 1 on search change
+  // Permission checks
+  const canManageProjects =
+    hasPermission(PERMISSIONS.EDIT_PROJECT) ||
+    user?.role === 'WORKSPACE_ADMIN' ||
+    user?.role === 'ADMIN' ||
+    user?.role === 'TECH_LEAD';
+
+  const canManageUsers =
+    hasPermission(PERMISSIONS.MANAGE_ROLES) ||
+    user?.role === 'WORKSPACE_ADMIN' ||
+    user?.role === 'ADMIN' ||
+    user?.role === 'SUPER_ADMIN';
+
+  const canInviteUsers =
+    hasPermission(PERMISSIONS.INVITE_USERS) ||
+    user?.role === 'WORKSPACE_ADMIN' ||
+    user?.role === 'ADMIN' ||
+    user?.role === 'SUPER_ADMIN';
+
+  // Team Management URL & View State
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const viewParam = searchParams.get('view');
+
+  const isManagementParam =
+    tabParam === 'directory' || tabParam === 'teams' || viewParam === 'management';
+  const [isManagementView, setIsManagementView] = useState(isManagementParam);
+  const [teamSubTab, setTeamSubTab] = useState(
+    tabParam === 'teams' ? 'teams' : 'directory'
+  );
+
+  // Sync if URL search params change
+  useEffect(() => {
+    if (
+      tabParam === 'directory' ||
+      tabParam === 'teams' ||
+      viewParam === 'management'
+    ) {
+      setIsManagementView(true);
+      if (tabParam === 'teams') setTeamSubTab('teams');
+      else if (tabParam === 'directory') setTeamSubTab('directory');
+    } else if (!tabParam && !viewParam) {
+      setIsManagementView(false);
+    }
+  }, [tabParam, viewParam]);
+
+  // Admin Dashboard hook for Team Management sub-interface
+  const [adminCurrentPage, setAdminCurrentPage] = useState(1);
+  const [adminSearchQuery, setAdminSearchQuery] = useState('');
+  const adminDebouncedSearchQuery = useDebounce(adminSearchQuery, 300);
+  const [editingUser, setEditingUser] = useState(null);
+
+  const {
+    data: adminData,
+    isLoading: isAdminLoading,
+    updateRoleMutation,
+    deactivateMutation,
+    deleteTeamMutation,
+  } = useAdminDashboard({ enabled: canManageUsers });
+
+  const adminTeams = Array.isArray(adminData?.teams)
+    ? adminData.teams.filter(Boolean)
+    : [];
+
+  const handleOpenManagement = (subTab = 'directory') => {
+    setIsManagementView(true);
+    setTeamSubTab(subTab);
+    setSearchParams({ tab: subTab });
+  };
+
+  const handleCloseManagement = () => {
+    setIsManagementView(false);
+    setSearchParams({});
+  };
+
+  const handleSubTabSwitch = (subTab) => {
+    setTeamSubTab(subTab);
+    setSearchParams({ tab: subTab });
+    setAdminCurrentPage(1);
+  };
+
+  // Extract all projects associated with a user/invitation (supports multiple projects)
+  const getMemberProjects = useCallback(
+    (item) => {
+      if (!item) return [];
+      const list = [];
+      const addProject = (proj) => {
+        if (!proj) return;
+        const name = typeof proj === 'object' ? proj.name || proj.title : proj;
+        const id = typeof proj === 'object' ? proj._id || proj.id : proj;
+        if (name && typeof name === 'string' && !list.some((p) => p.name === name)) {
+          list.push({ id, name });
+        }
+      };
+
+      if (Array.isArray(item.assignedProjects)) {
+        item.assignedProjects.forEach(addProject);
+      }
+      if (Array.isArray(item.projects)) {
+        item.projects.forEach(addProject);
+      }
+      if (Array.isArray(allProjects) && (item.id || item._id)) {
+        const itemId = (item.id || item._id).toString();
+        allProjects.forEach((proj) => {
+          if (Array.isArray(proj.members)) {
+            const isMember = proj.members.some((m) => {
+              const mId = (typeof m === 'object' ? m._id || m.id : m)?.toString();
+              return mId === itemId;
+            });
+            if (isMember) addProject(proj);
+          }
+        });
+      }
+      if (item.assignedProjectId) {
+        addProject(item.assignedProjectId);
+      }
+      return list;
+    },
+    [allProjects]
+  );
+
+  // Reset page to 1 on search or filter change
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearch]);
+  }, [debouncedSearch, statusFilter]);
 
   /**
    * Primary data fetcher
@@ -170,16 +306,6 @@ const Team = () => {
     return () => abortController.abort();
   }, [user, navigate, fetchData, userProjectId]);
 
-  // Click outside listener to close action menus
-  useEffect(() => {
-    const handleClickOutside = () => {
-      setActiveDropdownId(null);
-      setActiveProjectMenuId(null);
-    };
-    window.addEventListener('click', handleClickOutside);
-    return () => window.removeEventListener('click', handleClickOutside);
-  }, []);
-
   /**
    * Action Handlers
    */
@@ -193,8 +319,9 @@ const Team = () => {
       toast.error('Failed to update project assignment.');
     } finally {
       setActionLoading((prev) => ({ ...prev, updating: null }));
-      setActiveProjectMenuId(null);
-      setActiveDropdownId(null);
+      setMenuAnchor(null);
+      setIsSubmenuOpen(false);
+      setSubmenuTriggerEl(null);
     }
   };
 
@@ -251,20 +378,30 @@ const Team = () => {
         'Name',
         'Email',
         'Role',
-        'Project/Sector',
+        'Assigned Projects',
         'Status',
-        'MFA Status',
+        'Last Active',
         'Joined On',
       ];
-      const rows = exportItems.map((item) => [
-        item.name,
-        item.email,
-        item.jobTitle || item.role,
-        item.assignedProjectId?.name || 'Unassigned',
-        item.status,
-        item.mfaEnabled ? 'Enabled' : 'Disabled',
-        item.joinedOn ? new Date(item.joinedOn).toLocaleDateString() : 'N/A',
-      ]);
+      const rows = exportItems.map((item) => {
+        const memberProjects = getMemberProjects(item);
+        const projectsStr =
+          memberProjects.length > 0
+            ? memberProjects.map((p) => p.name).join('; ')
+            : 'Unassigned';
+
+        return [
+          item.name,
+          item.email,
+          item.jobTitle || item.role,
+          projectsStr,
+          item.status,
+          item.lastActive
+            ? new Date(item.lastActive).toLocaleDateString()
+            : 'Never',
+          item.joinedOn ? new Date(item.joinedOn).toLocaleDateString() : 'N/A',
+        ];
+      });
 
       const csvContent =
         'data:text/csv;charset=utf-8,\uFEFF' +
@@ -296,12 +433,12 @@ const Team = () => {
    */
   const getRoleBadgeClass = (role, jobTitle) => {
     const r = (role || jobTitle || '').toUpperCase();
-    if (r === 'WORKSPACE_ADMIN' || r === 'ADMIN')
-      return 'bg-purple-500/10 border border-purple-500/20 text-purple-400';
-    if (r.includes('TECH_LEAD') || r.includes('LEAD'))
-      return 'bg-blue-500/10 border border-blue-500/20 text-blue-400';
-    if (r.includes('SENIOR'))
-      return 'bg-indigo-500/10 border border-indigo-500/20 text-indigo-400';
+    if (r === 'WORKSPACE_ADMIN' || r === 'ADMIN' || r === 'SUPER_ADMIN')
+      return 'bg-primary/10 border border-primary/20 text-primary';
+    if (r.includes('TECH_LEAD') || r.includes('LEAD') || r.includes('SENIOR'))
+      return 'bg-secondary/10 border border-secondary/20 text-secondary';
+    if (r.includes('QA'))
+      return 'bg-status-info/10 border border-status-info/20 text-status-info';
     if (
       r.includes('SOFTWARE_ENGINEER') ||
       r.includes('PROJECT_MEMBER') ||
@@ -309,36 +446,40 @@ const Team = () => {
       r.includes('SWE') ||
       r.includes('ENGINEER')
     )
-      return 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400';
-    if (r.includes('QA'))
-      return 'bg-teal-500/10 border border-teal-500/20 text-teal-400';
+      return 'bg-background-elevated border border-border-subtle text-text';
     if (r.includes('HR') || r.includes('MANAGER'))
-      return 'bg-orange-500/10 border border-orange-500/20 text-orange-400';
-    if (r.includes('INTERN'))
-      return 'bg-gray-500/10 border border-gray-500/20 text-gray-400';
-    return 'bg-white/5 border border-white/10 text-white/60';
+      return 'bg-status-warning/10 border border-status-warning/20 text-status-warning';
+    return 'bg-background-elevated border border-border-subtle text-text-subtle';
   };
 
   const getRoleDisplayName = (role, jobTitle) => {
     const r = role?.toUpperCase();
-    if (r === 'WORKSPACE_ADMIN' || r === 'ADMIN') return 'Administrator';
+    if (r === 'WORKSPACE_ADMIN') return 'Workspace Admin';
+    if (r === 'ADMIN') return 'Administrator';
+    if (r === 'SUPER_ADMIN') return 'Super Admin';
     if (r === 'TECH_LEAD') return 'Tech Lead';
+    if (r === 'WORKSPACE_MANAGER' || r === 'PROJECT_ADMIN')
+      return 'Project Admin';
+    if (r === 'SENIOR_ENGINEER') return 'Senior Engineer';
+    if (r === 'SOFTWARE_ENGINEER') return 'Software Engineer';
+    if (r === 'QA_ENGINEER') return 'QA Engineer';
     if (r === 'HR_MANAGER') return 'HR Manager';
-    return jobTitle || 'Developer';
+    if (r === 'INTERN') return 'Intern';
+    return jobTitle || (role ? role.replace(/_/g, ' ') : 'Developer');
   };
 
   const getStatusBadgeClass = (status) => {
     switch (status) {
       case 'Active':
-        return 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400';
+        return 'bg-status-success/10 border border-status-success/20 text-status-success';
       case 'Inactive':
-        return 'bg-blue-500/10 border border-blue-500/20 text-blue-400';
+        return 'bg-background-elevated border border-border-subtle text-text-subtler';
       case 'Deactivated':
-        return 'bg-rose-500/10 border border-rose-500/20 text-rose-400';
+        return 'bg-status-error/10 border border-status-error/20 text-status-error';
       case 'Invited':
-        return 'bg-amber-500/10 border border-amber-500/20 text-amber-400';
+        return 'bg-status-warning/10 border border-status-warning/20 text-status-warning';
       default:
-        return 'bg-white/5 border border-white/10 text-white/40';
+        return 'bg-background-elevated border border-border-subtle text-text-subtler';
     }
   };
 
@@ -377,8 +518,22 @@ const Team = () => {
     newUsers: { count: 0, growth: 0, trend: [] },
     inactiveUsers: { count: 0, growth: 0, trend: [] },
     deactivatedUsers: { count: 0, growth: 0, trend: [] },
-    mfaEnabled: { count: 0, percentage: 0 },
   };
+
+  const pendingInvitationsCount = useMemo(() => {
+    if (data.stats?.pendingInvitations?.count != null) {
+      return data.stats.pendingInvitations.count;
+    }
+    const invCount = Array.isArray(data.invitations)
+      ? data.invitations.length
+      : 0;
+    const itemInvCount = Array.isArray(data.items)
+      ? data.items.filter(
+          (i) => i.status === 'Invited' || i.type === 'invitation'
+        ).length
+      : 0;
+    return Math.max(invCount, itemInvCount);
+  }, [data.stats, data.invitations, data.items]);
 
   const handleSort = (key) => {
     let direction = 'asc';
@@ -388,60 +543,75 @@ const Team = () => {
     setSortConfig({ key, direction });
   };
 
-  const sortedItems = useMemo(() => {
-    let sortableItems = [...(data.items || [])];
+  const filteredAndSortedItems = useMemo(() => {
+    let list = [...(data.items || [])];
+
+    // Status filter (Inactive & Deactivated moved to filters)
+    if (statusFilter !== 'ALL') {
+      list = list.filter((item) => {
+        const s = (
+          item.status || (item.type === 'invitation' ? 'Invited' : '')
+        ).toUpperCase();
+        if (statusFilter === 'ACTIVE') return s === 'ACTIVE';
+        if (statusFilter === 'INACTIVE') return s === 'INACTIVE';
+        if (statusFilter === 'DEACTIVATED') return s === 'DEACTIVATED';
+        if (statusFilter === 'INVITED')
+          return s === 'INVITED' || item.type === 'invitation';
+        return true;
+      });
+    }
+
     if (sortConfig.key !== null) {
-      sortableItems.sort((a, b) => {
+      list.sort((a, b) => {
         let aValue = a[sortConfig.key];
         let bValue = b[sortConfig.key];
 
         if (sortConfig.key === 'role') {
           aValue = getRoleDisplayName(a.role, a.jobTitle);
           bValue = getRoleDisplayName(b.role, b.jobTitle);
-        } else if (sortConfig.key === 'assignedProjectId') {
-          aValue = a.assignedProjectId?.name || 'Unassigned';
-          bValue = b.assignedProjectId?.name || 'Unassigned';
+        } else if (
+          sortConfig.key === 'assignedProjectId' ||
+          sortConfig.key === 'assignedProjects'
+        ) {
+          const aProj = getMemberProjects(a);
+          const bProj = getMemberProjects(b);
+          aValue = aProj[0]?.name || 'Unassigned';
+          bValue = bProj[0]?.name || 'Unassigned';
         }
+
+        if (aValue == null) aValue = '';
+        if (bValue == null) bValue = '';
 
         if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
         if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
       });
     }
-    return sortableItems;
-  }, [data.items, sortConfig]);
+    return list;
+  }, [data.items, statusFilter, sortConfig, getMemberProjects]);
 
-  // Sparkline styling configurations
-  const cardConfigs = [
+  // 3 Essential KPI Cards (Total Members, Active Members, Pending Invitations)
+  const kpiCards = [
     {
-      label: 'Total Users',
-      key: 'totalUsers',
-      color: '#818CF8',
-      icon: <Users size={14} className="text-indigo-400" />,
+      label: 'Total members',
+      count: stats.totalUsers?.count || 0,
+      subtext: 'Workspace directory',
+      icon: <Users size={16} className="text-primary" />,
     },
     {
-      label: 'Active Users (30d)',
-      key: 'activeUsers',
-      color: '#34D399',
-      icon: <CheckCircle size={14} className="text-emerald-400" />,
+      label: 'Active members',
+      count: stats.activeUsers?.count || 0,
+      subtext: `${stats.activeUsers?.count || 0} active now`,
+      icon: <CheckCircle size={16} className="text-status-success" />,
     },
     {
-      label: 'New Users (30d)',
-      key: 'newUsers',
-      color: '#60A5FA',
-      icon: <UserPlus size={14} className="text-blue-400" />,
-    },
-    {
-      label: 'Inactive Users (> 90d)',
-      key: 'inactiveUsers',
-      color: '#F59E0B',
-      icon: <Clock size={14} className="text-amber-400" />,
-    },
-    {
-      label: 'Deactivated Users',
-      key: 'deactivatedUsers',
-      color: '#EF4444',
-      icon: <UserMinus size={14} className="text-rose-400" />,
+      label: 'Pending invitations',
+      count: pendingInvitationsCount,
+      subtext:
+        pendingInvitationsCount === 1
+          ? '1 awaiting response'
+          : `${pendingInvitationsCount} awaiting response`,
+      icon: <Mail size={16} className="text-status-warning" />,
     },
   ];
 
@@ -450,46 +620,105 @@ const Team = () => {
   return (
     <div className="max-w-screen-2xl mx-auto px-4 lg:px-6 py-6 space-y-6 bg-background text-text min-h-screen flex flex-col font-sans">
       {/* 1. Header Row */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-border-subtler pb-4">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-border-subtle pb-4">
         <div className="space-y-1">
-          <h1 className="text-lg font-black tracking-widest uppercase text-text">
-            Total Users
-          </h1>
-          <p className="text-text-subtle text-[9px] font-black uppercase tracking-[0.2em]">
-            View, search, and manage all users across your organization.
-          </p>
+          {isManagementView ? (
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-text-subtle text-xs sm:text-sm font-medium">Team members</span>
+                <span className="text-text-subtler text-xs">/</span>
+                <h1 className="text-xl lg:text-2xl font-bold tracking-tight text-text">
+                  Team management
+                </h1>
+              </div>
+              <p className="text-text-subtle text-xs sm:text-sm font-normal mt-0.5">
+                Administrative directory, workspace role assignments, and squad governance.
+              </p>
+            </div>
+          ) : (
+            <div>
+              <h1 className="text-xl lg:text-2xl font-bold tracking-tight text-text">
+                Team members
+              </h1>
+              <p className="text-text-subtle text-sm font-normal">
+                View, search, and manage all team members across your workspace.
+              </p>
+            </div>
+          )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative group min-w-[200px]">
-            <Search
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-text-subtler group-focus-within:text-primary transition-colors"
-              size={12}
-            />
-            <input
-              type="text"
-              placeholder="Search members..."
-              className="w-full h-8 bg-background-elevated border border-border-subtle text-text rounded px-4 pl-9 focus:outline-none focus:border-primary/50 transition-all text-[9px] font-black uppercase tracking-widest placeholder:text-text-subtler"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
+        <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
+          {isManagementView ? (
+            <>
+              {canManageUsers && (
+                <button
+                  onClick={() => navigate('/settings?tab=roles')}
+                  className="h-9 px-3.5 bg-background-elevated border border-border-subtle hover:border-border font-medium text-xs rounded-xs transition-all flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer text-text flex-1 sm:flex-initial"
+                >
+                  <ShieldCheck size={13} className="text-primary" />
+                  <span>Manage roles</span>
+                </button>
+              )}
 
-          <button
-            onClick={handleExportCSV}
-            disabled={!data.items?.length}
-            className="h-8 px-4 bg-background-elevated border border-border-subtle hover:border-border-subtle/50 disabled:opacity-40 text-text font-black uppercase tracking-[0.15em] text-[9px] rounded-sm transition-all flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer"
-          >
-            <Download size={11} className="text-text-subtle" /> Export
-          </button>
+              <button
+                onClick={handleCloseManagement}
+                className="h-9 px-3.5 bg-background-elevated border border-border-subtle hover:bg-background-elevated/80 font-medium text-xs rounded-xs transition-all flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer text-text flex-1 sm:flex-initial"
+              >
+                <ArrowLeft size={13} /> Back to members
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="relative group w-full sm:w-auto sm:min-w-[220px] flex-1">
+                <Search
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-text-subtler group-focus-within:text-primary transition-colors"
+                  size={14}
+                />
+                <input
+                  type="text"
+                  placeholder="Search members..."
+                  className="w-full h-9 bg-background-elevated border border-border-subtle text-text rounded-xs px-4 pl-9 pr-8 focus:outline-none focus:border-primary/50 transition-all text-xs sm:text-sm font-medium placeholder:text-text-subtler"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-subtler hover:text-text cursor-pointer"
+                  >
+                    <X size={13} />
+                  </button>
+                )}
+              </div>
 
-          {hasPermission(PERMISSIONS.INVITE_USERS) && (
-            <button
-              onClick={() => navigate('/team/add')}
-              className="h-8 px-4 bg-primary text-black font-black uppercase tracking-[0.15em] text-[9px] rounded-sm transition-all flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer hover:bg-primary/95"
-            >
-              <UserPlus size={11} /> Add User
-            </button>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <button
+                  onClick={handleExportCSV}
+                  disabled={!data.items?.length}
+                  className="h-9 px-3.5 bg-background-elevated border border-border-subtle hover:border-border disabled:opacity-40 text-text font-medium text-xs rounded-xs transition-all flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer flex-1 sm:flex-initial"
+                >
+                  <Download size={13} className="text-text-subtle" /> Export
+                </button>
+
+                {canManageUsers && (
+                  <button
+                    onClick={() => handleOpenManagement('directory')}
+                    className="h-9 px-3.5 bg-background-elevated border border-border-subtle hover:border-primary/50 font-medium text-xs rounded-xs transition-all flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer text-text flex-1 sm:flex-initial"
+                  >
+                    <Users size={13} className="text-primary" /> Team management
+                  </button>
+                )}
+
+                {canInviteUsers && (
+                  <button
+                    onClick={() => navigate('/team/add')}
+                    className="h-9 px-3.5 bg-primary text-black font-semibold text-xs rounded-xs transition-all flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer hover:bg-primary/95 shrink-0"
+                  >
+                    <UserPlus size={13} /> Add user
+                  </button>
+                )}
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -498,13 +727,13 @@ const Team = () => {
         <div className="bg-status-error/5 border border-status-error/30 p-4 rounded-md flex items-start gap-4 animate-in fade-in duration-300">
           <AlertCircle
             className="text-status-error shrink-0 mt-0.5"
-            size={16}
+            size={18}
           />
           <div className="flex-1">
-            <h4 className="text-[10px] font-black text-text uppercase tracking-widest mb-1">
+            <h4 className="text-sm font-semibold text-text uppercase tracking-wide mb-1">
               Error fetching directory
             </h4>
-            <p className="text-[9px] text-text-subtle font-black uppercase tracking-widest">
+            <p className="text-xs text-text-subtle font-normal">
               {error}
             </p>
           </div>
@@ -512,139 +741,147 @@ const Team = () => {
             onClick={() => fetchData()}
             className="p-2 bg-background-elevated border border-border-subtle rounded hover:bg-background-light/20 transition-colors text-text"
           >
-            <RefreshCw size={12} />
+            <RefreshCw size={14} />
           </button>
         </div>
       )}
 
-      {/* 2. Top Analytics Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        {cardConfigs.map((card) => {
-          const item = stats[card.key];
-          return (
-            <div
-              key={card.key}
-              className="bg-background-elevated border border-border-subtler p-3 flex flex-col justify-between hover:border-border-subtle transition-all rounded-sm group relative overflow-hidden"
+      {/* View Switcher: Team Management Interface vs Standard Members Directory */}
+      {isManagementView ? (
+        <div className="flex flex-col gap-4 animate-fade-in">
+          {/* Sub-Navigation: User Directory & Teams */}
+          <div className="flex items-center gap-2 -mt-1 pb-1.5 border-b border-border-subtle/50">
+            <button
+              onClick={() => handleSubTabSwitch('directory')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium tracking-wide transition-all cursor-pointer rounded-xs ${
+                teamSubTab === 'directory'
+                  ? 'bg-background-elevated text-text border border-border-subtle font-semibold shadow-xs'
+                  : 'text-text-subtle hover:text-text hover:bg-background-elevated/50 border border-transparent'
+              }`}
             >
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-[8px] font-black uppercase tracking-[0.15em] text-text-subtle truncate max-w-[80%]">
-                  {card.label}
-                </span>
-                <div className="p-1 rounded bg-background-dark/40 border border-border-subtler">
-                  {card.icon}
+              <Users
+                size={13}
+                className={teamSubTab === 'directory' ? 'text-primary' : ''}
+              />
+              <span>User directory</span>
+            </button>
+            <button
+              onClick={() => handleSubTabSwitch('teams')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium tracking-wide transition-all cursor-pointer rounded-xs ${
+                teamSubTab === 'teams'
+                  ? 'bg-background-elevated text-text border border-border-subtle font-semibold shadow-xs'
+                  : 'text-text-subtle hover:text-text hover:bg-background-elevated/50 border border-transparent'
+              }`}
+            >
+              <Zap
+                size={13}
+                className={teamSubTab === 'teams' ? 'text-secondary' : ''}
+              />
+              <span>Teams</span>
+            </button>
+          </div>
+
+          {/* Sub-Tab Panel */}
+          <div className="flex-1">
+            {teamSubTab === 'directory' ? (
+              <UserDirectoryTab
+                data={adminData}
+                currentPage={adminCurrentPage}
+                setCurrentPage={setAdminCurrentPage}
+                searchQuery={adminSearchQuery}
+                debouncedSearchQuery={adminDebouncedSearchQuery}
+                setSearchQuery={setAdminSearchQuery}
+                setEditingUser={setEditingUser}
+              />
+            ) : (
+              <SquadDirectiveTab
+                teams={adminTeams}
+                deleteTeamMutation={deleteTeamMutation}
+              />
+            )}
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* 2. Top Analytics Metric Strip (Total Members, Active Members, Pending Invitations) */}
+          <div className="bg-card border border-border-subtle rounded-md p-3 sm:p-4 grid grid-cols-3 divide-x divide-border-subtle/50 shadow-xs">
+            {kpiCards.map((card, idx) => (
+              <div
+                key={card.label}
+                className={`flex flex-col justify-center px-2 sm:px-4 ${idx === 0 ? 'pl-1 sm:pl-2' : ''}`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[11px] sm:text-xs font-medium text-text-subtle truncate">
+                    {card.label}
+                  </span>
+                  <div className="hidden sm:flex p-1 rounded bg-background-elevated border border-border-subtle/50 text-text-subtle">
+                    {card.icon}
+                  </div>
+                </div>
+
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-lg sm:text-2xl font-bold tracking-tight text-text">
+                    {card.count.toLocaleString()}
+                  </span>
+                  {card.subtext && (
+                    <span className="hidden sm:inline text-[10px] text-text-subtler font-normal">
+                      {card.subtext}
+                    </span>
+                  )}
                 </div>
               </div>
+            ))}
+          </div>
 
-              <div className="flex items-baseline gap-1 mt-1 leading-none">
-                <span className="text-xl font-black text-text">
-                  {item.count.toLocaleString()}
-                </span>
-                <span
-                  className={`text-[8px] font-black tracking-wide leading-none flex items-center ${getTrendColor(card.key, item.growth)}`}
-                >
-                  {item.growth >= 0 ? '↑' : '↓'} {Math.abs(item.growth)}%
-                </span>
+          {/* 3. Main Directory Table */}
+          <div className="bg-card border border-border-subtle flex flex-col rounded-sm">
+            {/* Table Title and Actions / Filters */}
+            <div className="p-3 sm:p-4 border-b border-border-subtle flex flex-col md:flex-row md:items-center justify-between gap-3 bg-background-elevated/40">
+              <div className="flex items-center gap-3">
+                <h2 className="text-sm font-semibold text-text">
+                  Members ({filteredAndSortedItems.length}
+                  {statusFilter !== 'ALL' && ` of ${data.total}`})
+                </h2>
               </div>
 
-              <div className="h-10 mt-3 -mx-3 -mb-3 overflow-hidden">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart
-                    data={item.trend || []}
-                    margin={{ top: 5, right: 0, left: 0, bottom: 0 }}
+              {/* Status Filters: Responsive Segmented Control */}
+              <div className="flex flex-wrap items-center gap-1 p-0.5 bg-background-elevated border border-border-subtle rounded-sm">
+                {[
+                  { key: 'ALL', label: 'All' },
+                  { key: 'ACTIVE', label: 'Active' },
+                  { key: 'INACTIVE', label: 'Inactive' },
+                  { key: 'DEACTIVATED', label: 'Deactivated' },
+                  { key: 'INVITED', label: 'Pending invites' },
+                ].map((tab) => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setStatusFilter(tab.key)}
+                    className={`px-2.5 sm:px-3 py-1 text-xs font-medium rounded-xs transition-all cursor-pointer whitespace-nowrap ${
+                      statusFilter === tab.key
+                        ? 'bg-primary text-black font-semibold shadow-xs'
+                        : 'text-text-subtle hover:text-text hover:bg-background-elevated/50'
+                    }`}
                   >
-                    <defs>
-                      <linearGradient
-                        id={`grad_${card.key}`}
-                        x1="0"
-                        y1="0"
-                        x2="0"
-                        y2="1"
-                      >
-                        <stop
-                          offset="5%"
-                          stopColor={card.color}
-                          stopOpacity={0.25}
-                        />
-                        <stop
-                          offset="95%"
-                          stopColor={card.color}
-                          stopOpacity={0}
-                        />
-                      </linearGradient>
-                    </defs>
-                    <Area
-                      type="monotone"
-                      dataKey="val"
-                      stroke={card.color}
-                      strokeWidth={1}
-                      fillOpacity={1}
-                      fill={`url(#grad_${card.key})`}
-                      dot={false}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
+                    {tab.label}
+                  </button>
+                ))}
               </div>
             </div>
-          );
-        })}
 
-        {/* MFA Card (Special layout with progress bar) */}
-        <div className="bg-background-elevated border border-border-subtler p-3 flex flex-col justify-between hover:border-border-subtle transition-all rounded-sm group">
-          <div className="flex justify-between items-center mb-1">
-            <span className="text-[8px] font-black uppercase tracking-[0.15em] text-text-subtle">
-              MFA Enabled
-            </span>
-            <div className="p-1 rounded bg-background-dark/40 border border-border-subtler">
-              <ShieldCheck size={14} className="text-blue-400" />
-            </div>
-          </div>
-
-          <div className="flex items-baseline gap-1 mt-1 leading-none">
-            <span className="text-xl font-black text-text">
-              {stats.mfaEnabled.count.toLocaleString()}
-            </span>
-            <span className="text-[8px] font-bold text-text-subtle uppercase tracking-widest leading-none">
-              ({stats.mfaEnabled.percentage}%)
-            </span>
-          </div>
-
-          <div className="mt-4 pb-1">
-            <div className="w-full bg-white/5 h-1.5 rounded-none overflow-hidden border border-white/5">
-              <div
-                className="bg-blue-500 h-full transition-all duration-700"
-                style={{ width: `${stats.mfaEnabled.percentage}%` }}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Main Directory Table */}
-      <div className="bg-background-light border border-border-subtler flex-1 flex flex-col min-h-[400px]">
-        {/* Table Title and Actions */}
-        <div className="p-4 border-b border-border-subtler flex justify-between items-center bg-background-elevated/40">
-          <h2 className="text-[10px] font-black uppercase tracking-widest text-text-subtle">
-            User List ({data.total})
-          </h2>
-          <span className="text-[8px] font-black text-text-subtler uppercase tracking-widest">
-            Last Updated: {formatLastActive(lastUpdated)}
-          </span>
-        </div>
-
-        {/* Combined User Table */}
-        <div className="flex-1 overflow-x-auto">
+        {/* Combined User Table (Desktop View md+) */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[900px]">
             <thead>
-              <tr className="text-[7px] text-text-subtle uppercase font-black tracking-[0.2em] border-b border-border-subtler bg-background-elevated/20 select-none">
-                <th className="py-2.5 px-4 w-10">
+              <tr className="text-xs text-text-subtle font-medium border-b border-border-subtle bg-background-elevated/40 select-none">
+                <th className="py-3 px-4 w-10">
                   <input
                     type="checkbox"
-                    className="accent-primary h-3 w-3 bg-background border border-border-subtle rounded-sm cursor-pointer focus:outline-none"
+                    className="accent-primary h-3.5 w-3.5 bg-background border border-border-subtle rounded-xs cursor-pointer focus:outline-none"
                     disabled
                   />
                 </th>
                 <th
-                  className="py-2.5 px-4 cursor-pointer hover:text-text transition-colors"
+                  className="py-3 px-4 cursor-pointer hover:text-text transition-colors"
                   onClick={() => handleSort('name')}
                 >
                   User{' '}
@@ -652,7 +889,7 @@ const Team = () => {
                     (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
                 <th
-                  className="py-2.5 px-4 cursor-pointer hover:text-text transition-colors"
+                  className="py-3 px-4 cursor-pointer hover:text-text transition-colors"
                   onClick={() => handleSort('email')}
                 >
                   Email{' '}
@@ -660,7 +897,7 @@ const Team = () => {
                     (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
                 <th
-                  className="py-2.5 px-4 cursor-pointer hover:text-text transition-colors"
+                  className="py-3 px-4 cursor-pointer hover:text-text transition-colors"
                   onClick={() => handleSort('role')}
                 >
                   Role{' '}
@@ -668,15 +905,16 @@ const Team = () => {
                     (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
                 <th
-                  className="py-2.5 px-4 cursor-pointer hover:text-text transition-colors"
-                  onClick={() => handleSort('assignedProjectId')}
+                  className="py-3 px-4 cursor-pointer hover:text-text transition-colors"
+                  onClick={() => handleSort('assignedProjects')}
                 >
-                  Workspace Project{' '}
-                  {sortConfig.key === 'assignedProjectId' &&
+                  Assigned projects{' '}
+                  {(sortConfig.key === 'assignedProjects' ||
+                    sortConfig.key === 'assignedProjectId') &&
                     (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
                 <th
-                  className="py-2.5 px-4 cursor-pointer hover:text-text transition-colors"
+                  className="py-3 px-4 cursor-pointer hover:text-text transition-colors"
                   onClick={() => handleSort('status')}
                 >
                   Status{' '}
@@ -684,277 +922,190 @@ const Team = () => {
                     (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
                 <th
-                  className="py-2.5 px-4 cursor-pointer hover:text-text transition-colors"
-                  onClick={() => handleSort('mfaEnabled')}
-                >
-                  MFA{' '}
-                  {sortConfig.key === 'mfaEnabled' &&
-                    (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                </th>
-                <th
-                  className="py-2.5 px-4 cursor-pointer hover:text-text transition-colors"
+                  className="py-3 px-4 cursor-pointer hover:text-text transition-colors"
                   onClick={() => handleSort('lastActive')}
                 >
-                  Last Active{' '}
+                  Last active{' '}
                   {sortConfig.key === 'lastActive' &&
                     (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
                 <th
-                  className="py-2.5 px-4 cursor-pointer hover:text-text transition-colors"
+                  className="hidden md:table-cell py-3 px-4 cursor-pointer hover:text-text transition-colors"
                   onClick={() => handleSort('joinedOn')}
                 >
-                  Joined On{' '}
+                  Joined on{' '}
                   {sortConfig.key === 'joinedOn' &&
                     (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
-                <th className="py-2.5 px-4 text-right">Actions</th>
+                <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border-subtler text-[9.5px] font-bold text-text">
-              {sortedItems.map((item) => (
-                <tr
-                  key={item.id}
-                  className="hover:bg-background-elevated/20 transition-colors leading-tight align-middle"
-                >
-                  <td className="py-3 px-4">
-                    <input
-                      type="checkbox"
-                      className="accent-primary h-3 w-3 bg-background border border-border-subtle rounded-sm cursor-pointer focus:outline-none"
-                      disabled
-                    />
-                  </td>
+            <tbody className="divide-y divide-border-subtle/50 text-[13px] font-normal text-text">
+              {filteredAndSortedItems.map((item) => {
+                const memberProjects = getMemberProjects(item);
+                const canReassign =
+                  item.type === 'member' && canManageProjects;
+                const canDeactivate =
+                  item.type === 'member' &&
+                  canManageUsers &&
+                  user?.id !== item.id;
+                const canRevoke =
+                  item.type === 'invitation' && canInviteUsers;
+                const hasAnyAction =
+                  canReassign || canDeactivate || canRevoke || canManageUsers;
 
-                  {/* User Avatar + Name */}
-                  <td className="py-3 px-4 flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-sm bg-background-elevated border border-border-subtle text-text flex items-center justify-center font-black uppercase text-[10px] shrink-0 overflow-hidden select-none">
-                      {item.profilePicture ? (
-                        <img
-                          src={item.profilePicture}
-                          alt={item.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        item.name?.slice(0, 2)
-                      )}
-                    </div>
-                    <span className="font-black text-text hover:text-primary transition-colors cursor-default">
-                      {item.name}
-                    </span>
-                  </td>
-
-                  <td className="py-3 px-4 text-text/70 select-all font-medium">
-                    {item.email}
-                  </td>
-
-                  {/* Role */}
-                  <td className="py-3 px-4">
-                    <span
-                      className={`px-2 py-0.5 text-[7px] font-black uppercase tracking-wider rounded-[1px] leading-none whitespace-nowrap ${getRoleBadgeClass(
-                        item.role,
-                        item.jobTitle
-                      )}`}
-                    >
-                      {getRoleDisplayName(item.role, item.jobTitle)}
-                    </span>
-                  </td>
-
-                  {/* Workspace Project */}
-                  <td className="py-3 px-4">
-                    <span className="flex items-center gap-1.5 uppercase tracking-widest text-[8px] font-black text-text-subtle">
-                      <Box size={10} className="text-text-subtler shrink-0" />
-                      <span className="truncate max-w-[150px]">
-                        {item.assignedProjectId?.name || 'Unassigned'}
-                      </span>
-                    </span>
-                  </td>
-
-                  {/* Status Badge */}
-                  <td className="py-3 px-4">
-                    <span
-                      className={`px-2 py-0.5 text-[7px] font-black uppercase tracking-wider rounded-[1px] leading-none whitespace-nowrap ${getStatusBadgeClass(
-                        item.status
-                      )}`}
-                    >
-                      {item.status}
-                    </span>
-                  </td>
-
-                  {/* MFA */}
-                  <td className="py-3 px-4">
-                    {item.mfaEnabled ? (
-                      <ShieldCheck
-                        size={13}
-                        className="text-blue-400 fill-blue-500/10 shrink-0"
+                return (
+                  <tr
+                    key={item.id}
+                    className="hover:bg-background-elevated/40 transition-colors leading-tight align-middle"
+                  >
+                    <td className="py-3 px-4">
+                      <input
+                        type="checkbox"
+                        className="accent-primary h-3.5 w-3.5 bg-background border border-border-subtle rounded-xs cursor-pointer focus:outline-none"
+                        disabled
                       />
-                    ) : (
-                      <span className="text-text-subtler font-black">—</span>
-                    )}
-                  </td>
+                    </td>
 
-                  <td className="py-3 px-4 text-text-subtle uppercase tracking-wide text-[8px] whitespace-nowrap">
-                    {formatLastActive(item.lastActive)}
-                  </td>
-
-                  <td className="py-3 px-4 text-text-subtler uppercase tracking-wide text-[8px] whitespace-nowrap">
-                    {formatJoinedOn(item.joinedOn)}
-                  </td>
-
-                  {/* Actions Dropdown */}
-                  <td className="py-3 px-4 text-right relative">
-                    <button
-                      aria-label="Actions menu"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setActiveDropdownId(
-                          activeDropdownId === item.id ? null : item.id
-                        );
-                        setActiveProjectMenuId(null);
-                      }}
-                      className="p-1 text-text-subtle hover:text-text rounded hover:bg-background-elevated transition-colors cursor-pointer"
-                    >
-                      <MoreVertical size={13} />
-                    </button>
-
-                    {activeDropdownId === item.id && (
-                      <div
-                        onClick={(e) => e.stopPropagation()}
-                        className="absolute right-4 mt-1 w-44 bg-background-elevated border border-border-subtle rounded-sm shadow-2xl z-50 text-left py-1 animate-in fade-in zoom-in-95 duration-100"
-                      >
-                        {item.type === 'member' && (
-                          <>
-                            {/* Project Allocation Sub-menu Trigger */}
-                            <div className="relative">
-                              <button
-                                onClick={() =>
-                                  setActiveProjectMenuId(
-                                    activeProjectMenuId === item.id
-                                      ? null
-                                      : item.id
-                                  )
-                                }
-                                className="w-full px-3 py-2 text-[8px] font-black uppercase tracking-widest text-text-muted hover:text-text hover:bg-background-light/20 flex items-center justify-between cursor-pointer"
-                              >
-                                Reassign Project
-                                <ChevronRight size={10} />
-                              </button>
-
-                              {activeProjectMenuId === item.id && (
-                                <div className="absolute right-full top-0 mr-1 w-48 bg-background-elevated border border-border-subtle rounded-sm shadow-2xl py-1 z-50 overflow-y-auto max-h-48">
-                                  <button
-                                    onClick={() =>
-                                      handleAssignProject(item.id, null)
-                                    }
-                                    className="w-full px-3 py-2 text-[8px] font-black uppercase tracking-widest text-text-muted hover:text-text hover:bg-background-light/20 text-left flex justify-between items-center cursor-pointer"
-                                  >
-                                    Unassign Project
-                                    {!item.assignedProjectId && (
-                                      <Check
-                                        size={10}
-                                        className="text-primary"
-                                      />
-                                    )}
-                                  </button>
-                                  {allProjects.map((p) => (
-                                    <button
-                                      key={p.id}
-                                      onClick={() =>
-                                        handleAssignProject(item.id, p.id)
-                                      }
-                                      className="w-full px-3 py-2 text-[8px] font-black uppercase tracking-widest text-text-muted hover:text-text hover:bg-background-light/20 text-left flex justify-between items-center cursor-pointer"
-                                    >
-                                      <span className="truncate max-w-[120px]">
-                                        {p.name}
-                                      </span>
-                                      {item.assignedProjectId?.id === p.id && (
-                                        <Check
-                                          size={10}
-                                          className="text-primary"
-                                        />
-                                      )}
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Deactivate / Reactivate User */}
-                            {user?.id !== item.id && (
-                              <button
-                                onClick={() => {
-                                  setActiveDropdownId(null);
-                                  setModalConfig({
-                                    isOpen: true,
-                                    title:
-                                      item.status === 'Deactivated'
-                                        ? 'Reactivate User'
-                                        : 'Deactivate User',
-                                    message: `Are you sure you want to ${
-                                      item.status === 'Deactivated'
-                                        ? 'reactivate'
-                                        : 'deactivate'
-                                    } ${item.name}? This will update their login access.`,
-                                    confirmText:
-                                      item.status === 'Deactivated'
-                                        ? 'Reactivate'
-                                        : 'Deactivate',
-                                    type:
-                                      item.status === 'Deactivated'
-                                        ? 'info'
-                                        : 'danger',
-                                    onConfirm: () =>
-                                      handleToggleDeactivate(
-                                        item.id,
-                                        item.status
-                                      ),
-                                  });
-                                }}
-                                className="w-full px-3 py-2 text-[8px] font-black uppercase tracking-widest text-text-muted hover:text-text hover:bg-background-light/20 text-left cursor-pointer"
-                              >
-                                {item.status === 'Deactivated'
-                                  ? 'Reactivate Member'
-                                  : 'Deactivate Member'}
-                              </button>
-                            )}
-                          </>
-                        )}
-
-                        {item.type === 'invitation' && (
-                          <button
-                            onClick={() => {
-                              setActiveDropdownId(null);
-                              setModalConfig({
-                                isOpen: true,
-                                title: 'Revoke Invitation',
-                                message: `Are you sure you want to cancel the pending invitation sent to ${item.email}?`,
-                                confirmText: 'Revoke',
-                                type: 'danger',
-                                onConfirm: () =>
-                                  handleRevokeInvitation(item.id),
-                              });
-                            }}
-                            className="w-full px-3 py-2 text-[8px] font-black uppercase tracking-widest text-status-error/80 hover:text-status-error hover:bg-background-light/20 text-left cursor-pointer"
-                          >
-                            Revoke Invitation
-                          </button>
+                    {/* User Avatar + Name */}
+                    <td className="py-3 px-4 flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-sm bg-background-elevated border border-border-subtle text-text flex items-center justify-center font-bold uppercase text-xs shrink-0 overflow-hidden select-none">
+                        {item.profilePicture ? (
+                          <img
+                            src={item.profilePicture}
+                            alt={item.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          item.name?.slice(0, 2)
                         )}
                       </div>
-                    )}
-                  </td>
-                </tr>
-              ))}
+                      <span className="font-medium text-[13px] text-text hover:text-primary transition-colors cursor-default">
+                        {item.name}
+                      </span>
+                    </td>
 
-              {data.items.length === 0 && (
+                    <td className="py-3 px-4 text-text/70 select-all font-normal text-xs">
+                      {item.email}
+                    </td>
+
+                    {/* Role */}
+                    <td className="py-3 px-4">
+                      <span
+                        className={`px-2.5 py-0.5 text-[11px] font-medium rounded-sm leading-none whitespace-nowrap ${getRoleBadgeClass(
+                          item.role,
+                          item.jobTitle
+                        )}`}
+                      >
+                        {getRoleDisplayName(item.role, item.jobTitle)}
+                      </span>
+                    </td>
+
+                    {/* Assigned Projects (Supports multiple projects) */}
+                    <td className="py-3 px-4">
+                      {memberProjects.length === 0 ? (
+                        <span className="flex items-center gap-1.5 text-xs font-normal text-text-subtler">
+                          <Box
+                            size={13}
+                            className="text-text-subtler shrink-0 opacity-40"
+                          />
+                          <span>Unassigned</span>
+                        </span>
+                      ) : memberProjects.length === 1 ? (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-text-subtle bg-background-elevated border border-border-subtle px-2 py-0.5 rounded max-w-[170px]">
+                          <Box size={12} className="text-primary shrink-0" />
+                          <span className="truncate">
+                            {memberProjects[0].name}
+                          </span>
+                        </span>
+                      ) : (
+                        <div
+                          className="flex items-center gap-1.5"
+                          title={memberProjects.map((p) => p.name).join(', ')}
+                        >
+                          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-text-subtle bg-background-elevated border border-border-subtle px-2 py-0.5 rounded max-w-[140px]">
+                            <Box size={12} className="text-primary shrink-0" />
+                            <span className="truncate">
+                              {memberProjects[0].name}
+                            </span>
+                          </span>
+                          <span className="px-1.5 py-0.5 rounded text-[11px] font-semibold bg-primary/10 border border-primary/20 text-primary">
+                            +{memberProjects.length - 1}
+                          </span>
+                        </div>
+                      )}
+                    </td>
+
+                    {/* Status Badge */}
+                    <td className="py-3 px-4">
+                      <span
+                        className={`px-2.5 py-0.5 text-[11px] font-medium rounded-sm leading-none whitespace-nowrap ${getStatusBadgeClass(
+                          item.status
+                        )}`}
+                      >
+                        {item.status}
+                      </span>
+                    </td>
+
+                    {/* Last Active */}
+                    <td className="py-3 px-4 text-text-subtle text-xs font-normal whitespace-nowrap">
+                      {formatLastActive(item.lastActive)}
+                    </td>
+
+                    {/* Joined On (hidden on mobile, visible on md+) */}
+                    <td className="hidden md:table-cell py-3 px-4 text-text-subtler text-xs font-normal whitespace-nowrap">
+                      {formatJoinedOn(item.joinedOn)}
+                    </td>
+
+                    {/* Actions Dropdown (Permission-aware) */}
+                    <td className="py-3 px-4 text-right">
+                      {!hasAnyAction ? (
+                        <span className="text-text-subtler font-medium text-xs pr-2 select-none">
+                          —
+                        </span>
+                      ) : (
+                        <button
+                          aria-label="Actions menu"
+                          aria-haspopup="menu"
+                          aria-expanded={menuAnchor?.item?.id === item.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (menuAnchor?.item?.id === item.id) {
+                              setMenuAnchor(null);
+                              setIsSubmenuOpen(false);
+                              setSubmenuTriggerEl(null);
+                            } else {
+                              setMenuAnchor({ item, triggerEl: e.currentTarget });
+                              setIsSubmenuOpen(false);
+                              setSubmenuTriggerEl(null);
+                            }
+                          }}
+                          className={`p-1.5 rounded-xs transition-colors cursor-pointer ${
+                            menuAnchor?.item?.id === item.id
+                              ? 'text-text bg-background-elevated'
+                              : 'text-text-subtle hover:text-text hover:bg-background-elevated'
+                          }`}
+                        >
+                          <MoreVertical size={15} />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+
+              {filteredAndSortedItems.length === 0 && (
                 <tr>
-                  <td colSpan="10" className="py-20 text-center">
+                  <td colSpan="9" className="py-12 text-center">
                     <AlertTriangle
-                      size={32}
-                      className="mx-auto text-text-subtler mb-4 animate-bounce"
+                      size={28}
+                      className="mx-auto text-text-subtler mb-3"
                     />
-                    <h3 className="text-xs font-black uppercase tracking-widest text-text">
-                      No personnel records found
+                    <h3 className="text-sm font-semibold text-text">
+                      No members found
                     </h3>
-                    <p className="text-[9px] font-black uppercase tracking-widest text-text-subtle mt-1">
-                      No members or invitations matched the search keywords.
+                    <p className="text-xs text-text-subtle font-normal mt-1">
+                      No members or invitations matched the search or filter criteria.
                     </p>
                   </td>
                 </tr>
@@ -963,14 +1114,191 @@ const Team = () => {
           </table>
         </div>
 
+        {/* Mobile Directory Cards (Mobile View <768px) */}
+        <div className="block md:hidden divide-y divide-border-subtle/50">
+          {filteredAndSortedItems.length > 0 ? (
+            filteredAndSortedItems.map((item) => {
+              const memberProjects = getMemberProjects(item);
+              const isTargetSelf =
+                item.id === user?._id || item.id === user?.id;
+              const canReassign =
+                item.type === 'member' && canManageProjects;
+              const canDeactivate =
+                item.type === 'member' && canManageUsers && !isTargetSelf;
+              const canRevoke = item.type === 'invitation' && canInviteUsers;
+              const hasAnyAction =
+                canReassign || canDeactivate || canRevoke || canManageUsers;
+              const isExpanded = expandedMemberId === item.id;
+
+              return (
+                <div key={item.id} className="p-3.5 space-y-2.5">
+                  {/* Top Row: User Avatar, Name, Email, Status & Action */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <div className="w-8 h-8 rounded-sm bg-background-elevated border border-border-subtle text-text flex items-center justify-center font-bold uppercase text-xs shrink-0 overflow-hidden select-none">
+                        {item.profilePicture ? (
+                          <img
+                            src={item.profilePicture}
+                            alt={item.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          item.name?.slice(0, 2)
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium text-xs text-text truncate">
+                          {item.name}
+                        </div>
+                        <div className="text-[11px] text-text-subtler truncate">
+                          {item.email}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span
+                        className={`px-2 py-0.5 text-[10px] font-medium rounded-sm leading-none whitespace-nowrap ${getStatusBadgeClass(
+                          item.status
+                        )}`}
+                      >
+                        {item.status}
+                      </span>
+
+                      {hasAnyAction && (
+                        <button
+                          type="button"
+                          aria-label="Actions menu"
+                          aria-haspopup="menu"
+                          aria-expanded={menuAnchor?.item?.id === item.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (menuAnchor?.item?.id === item.id) {
+                              setMenuAnchor(null);
+                              setIsSubmenuOpen(false);
+                              setSubmenuTriggerEl(null);
+                            } else {
+                              setMenuAnchor({ item, triggerEl: e.currentTarget });
+                              setIsSubmenuOpen(false);
+                              setSubmenuTriggerEl(null);
+                            }
+                          }}
+                          className={`p-1.5 rounded-xs transition-colors cursor-pointer ${
+                            menuAnchor?.item?.id === item.id
+                              ? 'text-text bg-background-elevated'
+                              : 'text-text-subtle hover:text-text hover:bg-background-elevated'
+                          }`}
+                        >
+                          <MoreVertical size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Middle Row: Role Badge & Expand Toggle */}
+                  <div className="flex items-center justify-between gap-2 pt-0.5">
+                    <span
+                      className={`px-2 py-0.5 text-[10px] font-medium rounded-sm leading-none whitespace-nowrap ${getRoleBadgeClass(
+                        item.role,
+                        item.jobTitle
+                      )}`}
+                    >
+                      {getRoleDisplayName(item.role, item.jobTitle)}
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setExpandedMemberId(isExpanded ? null : item.id)
+                      }
+                      className="text-[11px] font-medium text-text-subtle hover:text-text flex items-center gap-1 transition-colors py-1 cursor-pointer"
+                      aria-expanded={isExpanded}
+                    >
+                      <span>{isExpanded ? 'Hide details' : 'Show details'}</span>
+                      <ChevronDown
+                        size={12}
+                        className={`transition-transform duration-200 ${
+                          isExpanded ? 'rotate-180 text-primary' : ''
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Expandable Accordion: Details Panel */}
+                  {isExpanded && (
+                    <div className="pt-2 pb-1 border-t border-border-subtle/40 space-y-2 text-xs animate-in fade-in duration-200">
+                      {/* Assigned Projects */}
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="text-text-subtler text-[11px] shrink-0">
+                          Assigned projects
+                        </span>
+                        <div className="text-right">
+                          {memberProjects.length === 0 ? (
+                            <span className="text-text-subtler text-[11px]">Unassigned</span>
+                          ) : (
+                            <div className="flex flex-wrap justify-end gap-1">
+                              {memberProjects.map((p) => (
+                                <span
+                                  key={p.id}
+                                  className="inline-flex items-center gap-1 text-[11px] font-medium text-text-subtle bg-background-elevated border border-border-subtle px-1.5 py-0.5 rounded"
+                                >
+                                  <Box size={10} className="text-primary shrink-0" />
+                                  <span className="truncate max-w-[120px]">{p.name}</span>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Last Active */}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-text-subtler text-[11px]">Last active</span>
+                        <span className="text-text-subtle text-[11px]">
+                          {formatLastActive(item.lastActive)}
+                        </span>
+                      </div>
+
+                      {/* Joined On */}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-text-subtler text-[11px]">Joined on</span>
+                        <span className="text-text-subtle text-[11px]">
+                          {formatJoinedOn(item.joinedOn)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          ) : (
+            <div className="py-10 text-center px-4">
+              <AlertTriangle size={24} className="mx-auto text-text-subtler mb-2" />
+              <h3 className="text-xs font-semibold text-text">No members found</h3>
+              <p className="text-[11px] text-text-subtle font-normal mt-0.5">
+                No members or invitations matched the search or filter criteria.
+              </p>
+            </div>
+          )}
+        </div>
+
         {/* 4. Pagination Control Footer */}
-        <div className="p-4 border-t border-border-subtler flex flex-col sm:flex-row items-center justify-between gap-4 bg-background-elevated/20 text-[9px] font-black uppercase tracking-wider text-text-subtle select-none">
+        <div className="p-4 border-t border-border-subtle flex flex-col sm:flex-row items-center justify-between gap-4 bg-background-elevated/30 text-xs font-medium text-text-subtle select-none">
           <div>
-            {data.total > 0 ? (
+            {filteredAndSortedItems.length > 0 ? (
               <span>
                 Showing {(currentPage - 1) * pageSize + 1} to{' '}
-                {Math.min(currentPage * pageSize, data.total)} of {data.total}{' '}
-                users
+                {Math.min(
+                  currentPage * pageSize,
+                  statusFilter === 'ALL'
+                    ? (data.total ?? filteredAndSortedItems.length)
+                    : filteredAndSortedItems.length
+                )}{' '}
+                of{' '}
+                {statusFilter === 'ALL'
+                  ? (data.total ?? filteredAndSortedItems.length)
+                  : filteredAndSortedItems.length}{' '}
+                {statusFilter !== 'ALL' ? 'filtered users' : 'users'}
               </span>
             ) : (
               <span>Showing 0 to 0 of 0 users</span>
@@ -978,27 +1306,42 @@ const Team = () => {
           </div>
 
           {/* Page numbers list */}
-          {data.pages > 1 && (
+          {(statusFilter === 'ALL' && data.pages
+            ? data.pages
+            : Math.ceil(filteredAndSortedItems.length / pageSize)) > 1 && (
             <div className="flex items-center gap-1.5">
               <button
                 disabled={currentPage === 1}
                 onClick={() => setCurrentPage((c) => Math.max(1, c - 1))}
-                className="w-7 h-7 flex items-center justify-center border border-border-subtle hover:border-border-subtle/55 disabled:opacity-30 rounded-[1px] transition-colors cursor-pointer text-text disabled:cursor-not-allowed"
+                className="w-8 h-8 flex items-center justify-center border border-border-subtle hover:border-border disabled:opacity-30 rounded-xs transition-colors cursor-pointer text-text disabled:cursor-not-allowed bg-background-elevated"
               >
-                <ChevronLeft size={10} />
+                <ChevronLeft size={13} />
               </button>
 
-              {Array.from({ length: data.pages }, (_, i) => i + 1).map((p) => {
+              {Array.from(
+                {
+                  length:
+                    statusFilter === 'ALL' && data.pages
+                      ? data.pages
+                      : Math.ceil(filteredAndSortedItems.length / pageSize) ||
+                        1,
+                },
+                (_, i) => i + 1
+              ).map((p) => {
+                const totalPageCount =
+                  statusFilter === 'ALL' && data.pages
+                    ? data.pages
+                    : Math.ceil(filteredAndSortedItems.length / pageSize) || 1;
                 // simple ellipsis styling for long pagination lists
                 if (
-                  data.pages > 7 &&
+                  totalPageCount > 7 &&
                   Math.abs(p - currentPage) > 2 &&
                   p !== 1 &&
-                  p !== data.pages
+                  p !== totalPageCount
                 ) {
-                  if (p === 2 || p === data.pages - 1) {
+                  if (p === 2 || p === totalPageCount - 1) {
                     return (
-                      <span key={p} className="px-1 text-text-subtler">
+                      <span key={p} className="px-1 text-text-subtler text-xs">
                         ...
                       </span>
                     );
@@ -1009,10 +1352,10 @@ const Team = () => {
                   <button
                     key={p}
                     onClick={() => setCurrentPage(p)}
-                    className={`w-7 h-7 flex items-center justify-center border rounded-[1px] font-black transition-all cursor-pointer ${
+                    className={`w-8 h-8 flex items-center justify-center border rounded-xs text-xs font-semibold transition-all cursor-pointer ${
                       currentPage === p
                         ? 'bg-primary border-primary text-black'
-                        : 'border-border-subtle hover:border-border-subtle/55 text-text'
+                        : 'bg-background-elevated border-border-subtle hover:border-border text-text'
                     }`}
                   >
                     {p}
@@ -1021,13 +1364,26 @@ const Team = () => {
               })}
 
               <button
-                disabled={currentPage === data.pages}
-                onClick={() =>
-                  setCurrentPage((c) => Math.min(data.pages, c + 1))
+                disabled={
+                  currentPage ===
+                  (statusFilter === 'ALL' && data.pages
+                    ? data.pages
+                    : Math.ceil(filteredAndSortedItems.length / pageSize) || 1)
                 }
-                className="w-7 h-7 flex items-center justify-center border border-border-subtle hover:border-border-subtle/55 disabled:opacity-30 rounded-[1px] transition-colors cursor-pointer text-text disabled:cursor-not-allowed"
+                onClick={() =>
+                  setCurrentPage((c) =>
+                    Math.min(
+                      statusFilter === 'ALL' && data.pages
+                        ? data.pages
+                        : Math.ceil(filteredAndSortedItems.length / pageSize) ||
+                            1,
+                      c + 1
+                    )
+                  )
+                }
+                className="w-8 h-8 flex items-center justify-center border border-border-subtle hover:border-border disabled:opacity-30 rounded-xs transition-colors cursor-pointer text-text disabled:cursor-not-allowed bg-background-elevated"
               >
-                <ChevronRight size={10} />
+                <ChevronRight size={13} />
               </button>
             </div>
           )}
@@ -1040,36 +1396,221 @@ const Team = () => {
                 setPageSize(Number(e.target.value));
                 setCurrentPage(1);
               }}
-              className="bg-background-elevated border border-border-subtle hover:border-border-subtle/50 text-[9px] font-black uppercase tracking-wider text-text pl-3.5 pr-8 py-1.5 focus:outline-none focus:border-primary/50 cursor-pointer rounded-[1px] appearance-none"
+              className="bg-background-elevated border border-border-subtle hover:border-border text-xs font-medium text-text pl-3 pr-7 py-1.5 focus:outline-none focus:border-primary/50 cursor-pointer rounded-xs appearance-none"
             >
               <option value={10}>10 / page</option>
               <option value={20}>20 / page</option>
               <option value={50}>50 / page</option>
             </select>
             <ChevronLeft
-              size={10}
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 -rotate-90 text-text-subtle pointer-events-none"
+              size={12}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 -rotate-90 text-text-subtle pointer-events-none"
             />
           </div>
         </div>
       </div>
+        </>
+      )}
 
-      {/* 5. Bottom Info Bar */}
-      <div className="flex flex-col sm:flex-row justify-between items-center text-[8px] font-black uppercase tracking-wider text-text-subtler border-t border-border-subtler pt-4 mt-auto">
-        <div className="flex items-center gap-4">
-          <span>Auto-refresh: On</span>
-          <button
-            onClick={() => fetchData()}
-            className="flex items-center gap-1 text-text-subtle hover:text-primary transition-colors cursor-pointer border-none bg-transparent"
-          >
-            <RefreshCw size={9} /> Sync
-          </button>
-        </div>
-        <div>
-          Data as of: {lastUpdated.toLocaleDateString()}{' '}
-          {lastUpdated.toLocaleTimeString()}
-        </div>
-      </div>
+      {/* Portal-Based Actions Menu & Submenu */}
+      {menuAnchor && (() => {
+        const item = menuAnchor.item;
+        const isTargetSelf =
+          item.id === user?._id || item.id === user?.id;
+        const canReassignItem =
+          item.type === 'member' && canManageProjects;
+        const canDeactivateItem =
+          item.type === 'member' && canManageUsers && !isTargetSelf;
+        const canRevokeItem = item.type === 'invitation' && canInviteUsers;
+
+        return (
+          <>
+            <ActionPortalMenu
+              triggerEl={menuAnchor.triggerEl}
+              isOpen={Boolean(menuAnchor)}
+              onClose={() => {
+                setMenuAnchor(null);
+                setIsSubmenuOpen(false);
+                setSubmenuTriggerEl(null);
+              }}
+              width={208}
+            >
+              {item.type === 'member' && (
+                <>
+                  {/* Direct Role & Permission Edit */}
+                  {canManageUsers && (
+                    <button
+                      onClick={() => {
+                        const targetItem = item;
+                        setMenuAnchor(null);
+                        setIsSubmenuOpen(false);
+                        setSubmenuTriggerEl(null);
+                        setEditingUser(targetItem);
+                      }}
+                      className="w-full px-3 py-2 text-xs font-medium text-text-subtle hover:text-text hover:bg-background-elevated flex items-center gap-2 cursor-pointer transition-colors"
+                    >
+                      <Shield size={13} className="text-primary" />
+                      <span>Edit role & access</span>
+                    </button>
+                  )}
+
+                  {/* Project Allocation Sub-menu Trigger */}
+                  {canReassignItem && (
+                    <button
+                      ref={(node) => {
+                        if (node && !submenuTriggerEl) {
+                          setSubmenuTriggerEl(node);
+                        }
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSubmenuTriggerEl(e.currentTarget);
+                        setIsSubmenuOpen((prev) => !prev);
+                      }}
+                      onMouseEnter={(e) => {
+                        setSubmenuTriggerEl(e.currentTarget);
+                        setIsSubmenuOpen(true);
+                      }}
+                      aria-haspopup="menu"
+                      aria-expanded={isSubmenuOpen}
+                      className="w-full px-3 py-2 text-xs font-medium text-text-subtle hover:text-text hover:bg-background-elevated flex items-center justify-between cursor-pointer transition-colors"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Box size={13} className="text-secondary" />
+                        <span>Reassign project</span>
+                      </span>
+                      <ChevronRight
+                        size={12}
+                        className={`text-text-subtle transition-transform ${isSubmenuOpen ? 'translate-x-0.5' : ''}`}
+                      />
+                    </button>
+                  )}
+
+                  {/* Deactivate / Reactivate User */}
+                  {canDeactivateItem && (
+                    <button
+                      onClick={() => {
+                        const targetItem = item;
+                        setMenuAnchor(null);
+                        setIsSubmenuOpen(false);
+                        setSubmenuTriggerEl(null);
+                        setModalConfig({
+                          isOpen: true,
+                          title:
+                            targetItem.status === 'Deactivated'
+                              ? 'Reactivate user'
+                              : 'Deactivate user',
+                          message: `Are you sure you want to ${
+                            targetItem.status === 'Deactivated'
+                              ? 'reactivate'
+                              : 'deactivate'
+                          } ${targetItem.name}? This will update their login access.`,
+                          confirmText:
+                            targetItem.status === 'Deactivated'
+                              ? 'Reactivate'
+                              : 'Deactivate',
+                          type:
+                            targetItem.status === 'Deactivated'
+                              ? 'info'
+                              : 'danger',
+                          onConfirm: () =>
+                            handleToggleDeactivate(
+                              targetItem.id,
+                              targetItem.status
+                            ),
+                        });
+                      }}
+                      className={`w-full px-3 py-2 text-xs font-medium text-left cursor-pointer hover:bg-background-elevated flex items-center gap-2 transition-colors ${
+                        canManageUsers || canReassignItem
+                          ? 'border-t border-border-subtle/40 mt-1 pt-1.5'
+                          : ''
+                      }`}
+                    >
+                      {item.status === 'Deactivated' ? (
+                        <>
+                          <UserCheck size={13} className="text-status-success" />
+                          <span className="text-status-success">Reactivate member</span>
+                        </>
+                      ) : (
+                        <>
+                          <UserMinus size={13} className="text-status-error" />
+                          <span className="text-status-error">Deactivate member</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                </>
+              )}
+
+              {item.type === 'invitation' && canRevokeItem && (
+                <button
+                  onClick={() => {
+                    const targetItem = item;
+                    setMenuAnchor(null);
+                    setIsSubmenuOpen(false);
+                    setSubmenuTriggerEl(null);
+                    setModalConfig({
+                      isOpen: true,
+                      title: 'Revoke invitation',
+                      message: `Are you sure you want to cancel the pending invitation sent to ${targetItem.email}?`,
+                      confirmText: 'Revoke',
+                      type: 'danger',
+                      onConfirm: () => handleRevokeInvitation(targetItem.id),
+                    });
+                  }}
+                  className="w-full px-3 py-2 text-xs font-medium text-status-error hover:bg-background-elevated flex items-center gap-2 text-left cursor-pointer transition-colors"
+                >
+                  <Trash2 size={13} />
+                  <span>Revoke invitation</span>
+                </button>
+              )}
+            </ActionPortalMenu>
+
+            {/* Submenu for Project Reassignment */}
+            {canReassignItem && isSubmenuOpen && submenuTriggerEl && (
+              <ActionSubmenuPortal
+                parentTriggerEl={submenuTriggerEl}
+                isOpen={isSubmenuOpen}
+                onClose={() => setIsSubmenuOpen(false)}
+                width={208}
+                maxHeight={200}
+              >
+                <button
+                  onClick={() => handleAssignProject(item.id, null)}
+                  className="w-full px-3 py-2 text-xs font-medium text-text-subtle hover:text-text hover:bg-background-elevated text-left flex justify-between items-center cursor-pointer transition-colors"
+                >
+                  <span>Unassign project</span>
+                  {!item.assignedProjectId && (
+                    <Check size={12} className="text-primary shrink-0 ml-2" />
+                  )}
+                </button>
+                {allProjects.map((p) => {
+                  const memberProjects = Array.isArray(item.projects)
+                    ? item.projects
+                    : [];
+                  const isCurrent =
+                    item.assignedProjectId?.id === p.id ||
+                    memberProjects.some(
+                      (mp) => mp.id === p.id || mp.name === p.name
+                    );
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => handleAssignProject(item.id, p.id)}
+                      className="w-full px-3 py-2 text-xs font-medium text-text-subtle hover:text-text hover:bg-background-elevated text-left flex justify-between items-center cursor-pointer transition-colors"
+                    >
+                      <span className="truncate max-w-[130px]">{p.name}</span>
+                      {isCurrent && (
+                        <Check size={12} className="text-primary shrink-0 ml-2" />
+                      )}
+                    </button>
+                  );
+                })}
+              </ActionSubmenuPortal>
+            )}
+          </>
+        );
+      })()}
 
       {/* Action Confirmation Modal */}
       <TacticalModal
@@ -1080,6 +1621,45 @@ const Team = () => {
         message={modalConfig.message}
         confirmText={modalConfig.confirmText}
         type={modalConfig.type}
+      />
+
+      {/* User Edit Modal for Team Management */}
+      <UserEditModal
+        isOpen={!!editingUser}
+        onClose={() => setEditingUser(null)}
+        user={editingUser}
+        onSave={({ userId, role }) => {
+          updateRoleMutation.mutate(
+            { userId, role },
+            {
+              onSuccess: () => {
+                toast.success('User role updated');
+                setEditingUser(null);
+                fetchData();
+              },
+              onError: (err) => {
+                toast.error(err?.message || 'Failed to update user role');
+              },
+            }
+          );
+        }}
+        onDeactivate={({ userId, status }) => {
+          deactivateMutation.mutate(
+            { userId, status },
+            {
+              onSuccess: () => {
+                toast.success(
+                  `User successfully ${status === 'Active' ? 'activated' : 'deactivated'}`
+                );
+                setEditingUser(null);
+                fetchData();
+              },
+              onError: (err) => {
+                toast.error(err?.message || 'Failed to update user status');
+              },
+            }
+          );
+        }}
       />
     </div>
   );

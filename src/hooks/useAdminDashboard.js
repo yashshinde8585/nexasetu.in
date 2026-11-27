@@ -5,7 +5,7 @@ import socketService from '../services/socketService';
 import { useAuth } from '../context/AuthContext';
 
 // Hook to fetch and manage admin dashboard data.
-export const useAdminDashboard = () => {
+export const useAdminDashboard = (options = {}) => {
   const queryClient = useQueryClient();
   const [filters, setFilters] = useState({ action: '' });
   const { user } = useAuth();
@@ -17,7 +17,10 @@ export const useAdminDashboard = () => {
     refetchInterval: 120000, // 2 min polling (socket handles instant updates)
     staleTime: 2 * 60 * 1000, // 2 min — socket events cover real-time freshness
     gcTime: 10 * 60 * 1000, // keep warm across tab switches
-    enabled: !!user?.workspaceId,
+    enabled:
+      options.enabled !== undefined
+        ? Boolean(options.enabled && user?.workspaceId)
+        : !!user?.workspaceId,
   });
 
   // 2. Real-time Synchronization

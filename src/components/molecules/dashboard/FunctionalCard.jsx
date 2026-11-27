@@ -1,45 +1,35 @@
 import React from 'react';
 
-// Functional grid card component.
-const FunctionalCard = ({ title, metrics, focus, id, onClick }) => (
+// Functional card component for executive team monitoring
+const FunctionalCard = ({ title, metrics = [], id, onClick }) => (
   <div
     id={id}
     onClick={onClick}
-    className="bg-white/5 border border-white/10 p-4 rounded-none hover:bg-white/10 transition-colors group cursor-pointer flex flex-col gap-3"
+    className="bg-card border border-border-subtle p-3.5 sm:p-5 rounded-xl hover:border-border transition-colors group cursor-pointer flex flex-col gap-2.5 sm:gap-3 shadow-xs"
   >
     <header className="flex justify-between items-center">
-      <h3 className="text-[9px] font-black uppercase tracking-[0.2em] text-white/40 group-hover:text-white transition-colors">
+      <h3 className="text-sm font-semibold text-text group-hover:text-primary transition-colors">
         {title}
       </h3>
-      <span className="text-[7px] opacity-0 group-hover:opacity-100 transition-opacity bg-black border border-white/10 px-2 py-0.5 rounded-none text-white/40 tracking-[0.2em]">
-        VIEW_DETAILS
-      </span>
     </header>
 
-    <div className="grid grid-cols-2 gap-3">
+    <div className="grid grid-cols-2 gap-3 pt-1">
       {metrics.map((m, i) => (
         <div
           key={i}
-          className="flex flex-col gap-1 border-l border-white/10 pl-3 first:border-l-0 first:pl-0"
+          className={`flex flex-col gap-0.5 ${i % 2 !== 0 ? 'border-l border-border-subtle/50 pl-3' : 'pr-2'}`}
         >
-          <span className="text-[8px] font-black text-white/30 uppercase tracking-[0.2em] truncate">
+          <span className="text-xs font-medium text-text-subtle truncate">
             {m.label}
           </span>
           <span
-            className={`text-[12px] font-black uppercase tracking-[0.2em] ${m.color || 'text-white'}`}
+            className={`text-base sm:text-lg font-bold tracking-tight ${m.color || 'text-text'}`}
           >
             {m.value}
           </span>
         </div>
       ))}
     </div>
-
-    <footer className="mt-auto pt-3 border-t border-white/10 flex items-center gap-2">
-      <div className="w-1.5 h-1.5 rounded-none bg-primary/40" />
-      <span className="text-[7px] text-white/40 uppercase font-black tracking-[0.2em] truncate">
-        FOCUS: <span className="text-white/60">{focus}</span>
-      </span>
-    </footer>
   </div>
 );
 

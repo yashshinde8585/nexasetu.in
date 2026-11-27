@@ -3,29 +3,49 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: {
+        brand: {
           DEFAULT: '#3B82F6',
-          dark: '#1E3A8A',
-          light: '#60A5FA',
+          azure: '#3B82F6',
+          royal: '#2563EB',
+          sky: '#60A5FA',
+          pale: '#93C5FD',
+          indigo: '#7C76FF',
+        },
+        primary: {
+          DEFAULT: 'var(--color-primary, #3B82F6)',
+          dark: 'var(--color-primary-dark, #2563EB)',
+          light: 'var(--color-primary-light, #60A5FA)',
         },
         secondary: {
-          DEFAULT: '#8B5CF6',
-          light: '#A78BFA',
+          DEFAULT: 'var(--color-secondary, #8B5CF6)',
+          light: 'var(--color-secondary-light, #A78BFA)',
         },
         background: {
-          DEFAULT: '#1E293B',
-          dark: '#0F172A',
-          light: '#334155',
+          DEFAULT: 'var(--color-background, #0B0D10)',
+          dark: 'var(--color-background-dark, #07090C)',
+          light: 'var(--color-background-light, #12161C)',
+          elevated: 'var(--color-background-elevated, #161B22)',
+          popover: 'var(--color-background-popover, #1E2630)',
+        },
+        card: {
+          DEFAULT: 'var(--color-card, #12161C)',
         },
         text: {
-          DEFAULT: '#F1F5F9',
-          muted: '#94A3B8',
+          DEFAULT: 'var(--color-text, #F8FAFC)',
+          muted: 'var(--color-text-muted, #A1A8B3)',
+          subtle: 'var(--color-text-subtle, #94A3B8)',
+          subtler: 'var(--color-text-subtler, #64748B)',
+        },
+        border: {
+          DEFAULT: 'var(--color-border, #292D33)',
+          subtle: 'var(--color-border-subtle, #292D33)',
+          subtler: 'var(--color-border-subtler, rgba(41, 45, 51, 0.5))',
         },
         status: {
-          success: '#22C55E',
-          warning: '#F59E0B',
-          error: '#EF4444',
-          info: '#38BDF8',
+          success: 'var(--color-status-success, #4ADE80)',
+          warning: 'var(--color-status-warning, #FBBF24)',
+          error: 'var(--color-status-error, #F87171)',
+          info: 'var(--color-status-info, #7DD3FC)',
         },
       },
       spacing: {

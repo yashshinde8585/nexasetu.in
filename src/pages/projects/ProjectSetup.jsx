@@ -1,21 +1,39 @@
-import React, { useState, useEffect } from 'react';
-import { Users, AlertCircle, Calendar, FileText } from 'lucide-react';
+import React, { useState, useMemo, useCallback } from 'react';
+import {
+  Users,
+  AlertCircle,
+  Calendar,
+  FileText,
+  ArrowLeft,
+  Check,
+  FolderKanban,
+  Flag,
+  Sparkles,
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import { ROUTES } from '../../constants';
 import { useDashboard } from '../../hooks/useDashboard';
+import { useAdminDashboard } from '../../hooks/useAdminDashboard';
 import { useAuth } from '../../context/AuthContext';
 import MetricsService from '../../api/metricsApi';
 import { sanitizeInput, validateProjectForm } from '../../utils/validation';
+import CenteredLoading from '../../components/atoms/CenteredLoading';
 
-const SetupSkeleton = () => (
-  <div className="min-h-screen bg-background flex items-center justify-center">
-    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary shadow-[0_0_15px_rgba(59,130,246,0.5)]" />
-  </div>
-);
+const DEFAULT_DISCIPLINES = [
+  'Backend',
+  'Frontend',
+  'QA',
+  'DevOps',
+  'UI/UX',
+  'Mobile',
+];
 
 const ProjectSetup = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { handleCreateProject, isLoading } = useDashboard();
+  const { handleCreateProject, isLoading: isDashboardLoading } = useDashboard();
+  const { data: adminData, isLoading: isAdminLoading } = useAdminDashboard();
 
   const [project, setProject] = useState({
     name: '',
@@ -32,19 +50,135 @@ const ProjectSetup = () => {
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitMode, setSubmitMode] = useState(null); // 'active' | 'draft'
   const [submitError, setSubmitError] = useState(null);
+  const [fieldErrors, setFieldErrors] = useState({});
+
+  // Workspace-specific teams configured in the workspace
+  const workspaceTeams = useMemo(() => {
+    const raw = adminData?.teams || [];
+    if (Array.isArray(raw) && raw.length > 0) {
+      return raw.map((t) => t.name).filter(Boolean);
+    }
+    return [];
+  }, [adminData?.teams]);
+
+  // Combined available teams maintaining backward compatibility
+  const availableTeams = useMemo(() => {
+    if (workspaceTeams.length > 0) {
+      return Array.from(new Set([...workspaceTeams, ...DEFAULT_DISCIPLINES]));
+    }
+    return DEFAULT_DISCIPLINES;
+  }, [workspaceTeams]);
+
+  // Derived Project Key matching backend algorithm
+  const derivedKey = useMemo(() => {
+    if (!project.name?.trim()) return 'PRJ';
+    const clean = project.name.replace(/[^a-zA-Z]/g, '').substring(0, 3).toUpperCase();
+    return (clean + 'XXX').substring(0, 3);
+  }, [project.name]);
+
+  // Format date helper
+  const formatDate = (dateStr) => {
+    if (!dateStr) return 'TBD';
+    try {
+      return new Date(dateStr).toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      });
+    } catch {
+      return 'TBD';
+    }
+  };
+
+  // Duration in calendar days
+  const durationDays = useMemo(() => {
+    if (!project.timeline.start || !project.timeline.end) return null;
+    try {
+      const start = new Date(project.timeline.start);
+      const end = new Date(project.timeline.end);
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) return null;
+      const diff = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+      return Math.max(1, diff);
+    } catch {
+      return null;
+    }
+  }, [project.timeline.start, project.timeline.end]);
+
+  // Track if user made modifications to protect against accidental navigation
+  const isDirty = useMemo(() => {
+    return (
+      project.name.trim() !== '' ||
+      project.objective.trim() !== '' ||
+      project.type !== 'Product Development' ||
+      project.priority !== 'Medium' ||
+      project.teams.length !== 2
+    );
+  }, [project]);
+
+  const toggleTeam = (team) => {
+    setProject((prev) => ({
+      ...prev,
+      teams: prev.teams.includes(team)
+        ? prev.teams.filter((t) => t !== team)
+        : [...prev.teams, team],
+    }));
+  };
+
+  // Validate form with field-specific mapping
+  const validateForm = useCallback(() => {
+    const errors = {};
+    const globalError = validateProjectForm(project);
+
+    const cleanName = sanitizeInput(project.name);
+    if (!cleanName || cleanName.length === 0) {
+      errors.name = 'Enter a project name.';
+    } else if (cleanName.length < 3) {
+      errors.name = 'Project name must be at least 3 characters long.';
+    }
+
+    if (!project.type) {
+      errors.type = 'Select a project type.';
+    }
+
+    if (project.timeline.start && project.timeline.end) {
+      const start = new Date(project.timeline.start);
+      const end = new Date(project.timeline.end);
+      if (end < start) {
+        errors.end = 'Target delivery date cannot be before the start date.';
+      }
+    }
+
+    return {
+      isValid: !globalError && Object.keys(errors).length === 0,
+      globalError,
+      fieldErrors: errors,
+    };
+  }, [project]);
 
   const onCreate = async (e, isDraft = false) => {
     if (e) e.preventDefault();
 
-    const validationError = validateProjectForm(project);
-    if (validationError) {
-      setSubmitError(validationError);
+    const { isValid, globalError, fieldErrors: validationErrors } = validateForm();
+    if (!isValid) {
+      const errorMessage =
+        validationErrors.name ||
+        validationErrors.end ||
+        validationErrors.type ||
+        globalError ||
+        'Please correct form errors before continuing.';
+      setSubmitError(errorMessage);
+      setFieldErrors(validationErrors);
+      toast.error(errorMessage);
       return;
     }
 
     setSubmitError(null);
+    setFieldErrors({});
     setIsSubmitting(true);
+    setSubmitMode(isDraft ? 'draft' : 'active');
+
     try {
       const sanitizedProject = {
         ...project,
@@ -59,100 +193,158 @@ const ProjectSetup = () => {
         status: isDraft ? 'draft' : 'active',
       });
 
-      MetricsService.trackProjectCreated(result?._id, project.name);
+      const projectId = result?._id || result?.id || result?.data?.project?._id;
+      if (projectId) {
+        MetricsService.trackProjectCreated(projectId, sanitizedProject.name);
+      }
 
-      navigate('/project-info');
+      toast.success(
+        isDraft ? 'Project saved as draft' : 'Project created successfully'
+      );
+      navigate(ROUTES.SPRINTS);
     } catch (error) {
       console.error('Failed to create project:', error);
       const message =
+        error?.response?.data?.message ||
         error?.message ||
-        'Unable to create project. Please check your connection and try again.';
+        "Couldn't create the project. Please try again.";
       setSubmitError(message);
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
+      setSubmitMode(null);
     }
   };
 
-  const toggleTeam = (team) => {
-    setProject((prev) => ({
-      ...prev,
-      teams: prev.teams.includes(team)
-        ? prev.teams.filter((t) => t !== team)
-        : [...prev.teams, team],
-    }));
+  const onCancel = () => {
+    if (isDirty) {
+      const confirmed = window.confirm(
+        'You have unsaved changes. Leave without saving?'
+      );
+      if (!confirmed) return;
+    }
+    navigate(ROUTES.SPRINTS);
   };
 
-  if (isLoading) return <SetupSkeleton />;
+  if (isDashboardLoading || isAdminLoading) return <CenteredLoading />;
 
   return (
-    <div className="min-h-screen bg-background text-text px-3 sm:px-4 lg:px-6 py-4">
+    <div className="min-h-screen bg-background text-text p-3 sm:p-4 lg:p-6 font-sans">
       <div className="w-full space-y-6 max-w-7xl mx-auto">
-        {/* Simplified Header */}
-        <header className="border-b border-border-subtle pb-6">
-          <div className="space-y-1">
-            <h1 className="text-[14px] font-black tracking-widest uppercase text-text">
-              CREATE NEW PROJECT
-            </h1>
-            <p className="text-text-subtle text-[9px] font-black uppercase tracking-[0.2em] max-w-xl flex items-center gap-3">
-              CONFIGURE YOUR WORKSPACE AND START COLLABORATING.
-            </p>
+        {/* Header Breadcrumb & Actions */}
+        <header className="space-y-3 pb-4 border-b border-border-subtle">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-text-subtle hover:text-text cursor-pointer transition-colors"
+          >
+            <ArrowLeft size={13} />
+            <span>Back to sprints</span>
+          </button>
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2.5">
+                <h1 className="text-xl lg:text-2xl font-bold tracking-tight text-text">
+                  Create Project
+                </h1>
+                <span className="text-xs font-semibold text-text-subtle bg-background-elevated border border-border-subtle px-2 py-0.5 rounded-xs">
+                  Create New Project
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm text-text-subtle">
+                Set up your project, assign teams, and define its timeline.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 self-start sm:self-auto">
+              <span className="text-xs text-text-subtle font-medium">
+                Workspace project setup
+              </span>
+            </div>
           </div>
         </header>
 
-        {/* Main Configuration Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start relative z-10">
-          {/* Header/Summary for Mobile - Always Visible */}
-          <div className="lg:hidden">
-            <MobileSummary project={project} />
-          </div>
-
-          {/* Left: Setup Panel */}
-          <div className="lg:col-span-7 xl:col-span-8 order-2 lg:order-1 space-y-6">
-            <div className="bg-background-elevated border border-border-subtle p-5 sm:p-6 rounded-xl relative overflow-hidden group hover:border-border-subtle transition-colors">
-              {submitError && (
-                <div className="mb-6 sm:mb-8 p-4 sm:p-6 bg-status-error/5 border border-status-error/30 rounded-xl flex items-start gap-3 sm:gap-4 animate-in slide-in-from-top-4">
-                  <AlertCircle className="text-status-error mt-0.5" size={18} />
-                  <p className="text-[10px] text-text/70 font-black uppercase tracking-widest leading-relaxed">
-                    {submitError}
-                  </p>
+        {/* Main Grid: Form (Col 7-8) + Live Preview (Col 4-5) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* Left Column: Configuration Form */}
+          <div className="lg:col-span-7 xl:col-span-8 space-y-6">
+            <div className="bg-card border border-border-subtle rounded-md p-5 sm:p-6 space-y-6">
+              {submitError && Object.keys(fieldErrors).length === 0 && (
+                <div
+                  role="alert"
+                  className="p-3.5 bg-status-error/10 border border-status-error/20 rounded-xs flex items-start gap-2.5 animate-fade-in text-xs text-status-error"
+                >
+                  <AlertCircle size={15} className="shrink-0 mt-0.5" />
+                  <span className="font-medium">{submitError}</span>
                 </div>
               )}
 
-              <form className="space-y-10 sm:space-y-12">
-                {/* Section 1: Identity */}
-                <div className="space-y-6 sm:space-y-8">
-                  <div className="flex items-center gap-4 border-b border-border-subtle pb-4">
-                    <FileText size={14} className="text-primary" />
-                    <h2 className="text-[10px] font-black text-text-subtle uppercase tracking-[0.2em]">
-                      PROJECT DETAILS
+              <form onSubmit={(e) => onCreate(e, false)} className="space-y-6">
+                {/* AREA A: Project Details */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 pb-2 border-b border-border-subtle">
+                    <FileText size={15} className="text-primary" />
+                    <h2 className="text-xs font-semibold text-text">
+                      Project details
                     </h2>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <label className="text-[9px] font-black text-text-subtle uppercase tracking-[0.2em]">
-                        PROJECT NAME
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Project Name */}
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <label
+                        htmlFor="projectName"
+                        className="text-xs font-semibold text-text-subtle flex items-center justify-between"
+                      >
+                        <span>
+                          Project name <span className="text-status-error">*</span>
+                        </span>
+                        <span className="text-[11px] text-text-subtle font-normal">
+                          Min 3 characters
+                        </span>
                       </label>
                       <input
-                        placeholder="E.G., CLIENT PORTAL"
+                        id="projectName"
+                        type="text"
+                        required
+                        aria-required="true"
+                        aria-invalid={!!fieldErrors.name}
+                        aria-describedby={fieldErrors.name ? 'name-error' : undefined}
+                        placeholder="e.g. Payment Gateway"
                         value={project.name}
-                        onChange={(e) =>
-                          setProject({ ...project, name: e.target.value })
-                        }
-                        className="w-full h-9 bg-background-dark border border-border-subtle px-4 rounded text-text font-black text-[10px] uppercase tracking-widest focus:outline-none focus:border-primary transition-all placeholder:text-text-subtler"
+                        onChange={(e) => {
+                          setProject({ ...project, name: e.target.value });
+                          if (submitError) setSubmitError(null);
+                          if (fieldErrors.name) {
+                            setFieldErrors((prev) => ({ ...prev, name: null }));
+                          }
+                        }}
+                        className={`w-full h-9 bg-background-elevated border rounded-xs px-3 text-xs sm:text-sm text-text placeholder:text-text-subtle focus:border-primary/50 outline-none transition-colors ${
+                          fieldErrors.name ? 'border-status-error' : 'border-border-subtle'
+                        }`}
                       />
+                      {fieldErrors.name && (
+                        <p id="name-error" className="text-xs text-status-error font-medium mt-1">
+                          {fieldErrors.name}
+                        </p>
+                      )}
                     </div>
 
-                    <div className="space-y-2">
-                      <label className="text-[9px] font-black text-text-subtle uppercase tracking-[0.2em]">
-                        PROJECT TYPE
+                    {/* Project Type */}
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="projectType"
+                        className="text-xs font-semibold text-text-subtle"
+                      >
+                        Project type <span className="text-status-error">*</span>
                       </label>
                       <select
+                        id="projectType"
                         value={project.type}
                         onChange={(e) =>
                           setProject({ ...project, type: e.target.value })
                         }
-                        className="w-full h-9 bg-background-dark border border-border-subtle px-3 rounded text-text font-black text-[10px] uppercase tracking-widest focus:outline-none focus:border-primary transition-all appearance-none cursor-pointer"
+                        className="w-full h-9 bg-background-elevated border border-border-subtle rounded-xs px-3 text-xs sm:text-sm text-text focus:border-primary/50 outline-none transition-colors cursor-pointer"
                       >
                         <option value="Product Development">
                           Product Development
@@ -162,230 +354,354 @@ const ProjectSetup = () => {
                         <option value="Research / POC">Research / POC</option>
                       </select>
                     </div>
-                  </div>
 
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black text-text-subtle uppercase tracking-[0.2em]">
-                      DESCRIPTION
-                    </label>
-                    <textarea
-                      placeholder="DESCRIBE THE KEY GOALS AND DELIVERABLES..."
-                      rows={2}
-                      value={project.objective}
-                      onChange={(e) =>
-                        setProject({ ...project, objective: e.target.value })
-                      }
-                      className="w-full bg-background-dark border border-border-subtle p-4 rounded text-text font-black text-[10px] uppercase tracking-widest focus:outline-none focus:border-primary transition-all resize-none placeholder:text-text-subtler"
-                    />
-                  </div>
-                </div>
-
-                {/* Section 2: Composition */}
-                <div className="space-y-6">
-                  <div className="flex items-center gap-4 border-b border-border-subtle pb-4">
-                    <Users size={14} className="text-secondary" />
-                    <h2 className="text-[10px] font-black text-text-subtle uppercase tracking-[0.2em]">
-                      TEAM ASSIGNMENT
-                    </h2>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      'Backend',
-                      'Frontend',
-                      'QA',
-                      'DevOps',
-                      'UI/UX',
-                      'Hardware',
-                    ].map((team) => (
-                      <button
-                        key={team}
-                        type="button"
-                        onClick={() => toggleTeam(team)}
-                        className={`px-4 py-2 rounded border text-[9px] font-black uppercase tracking-[0.2em] transition-all ${
-                          project.teams.includes(team)
-                            ? 'bg-white text-background-dark border-white'
-                            : 'bg-background-elevated border-border-subtle text-text-subtle hover:border-border-subtle'
-                        }`}
+                    {/* Priority Level */}
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="projectPriority"
+                        className="text-xs font-semibold text-text-subtle"
                       >
-                        {team}
-                      </button>
-                    ))}
+                        Priority<span className="sr-only"> Level</span>
+                      </label>
+                      <select
+                        id="projectPriority"
+                        value={project.priority}
+                        onChange={(e) =>
+                          setProject({ ...project, priority: e.target.value })
+                        }
+                        className="w-full h-9 bg-background-elevated border border-border-subtle rounded-xs px-3 text-xs sm:text-sm text-text focus:border-primary/50 outline-none transition-colors cursor-pointer"
+                      >
+                        <option value="Low">Low</option>
+                        <option value="Medium">Medium</option>
+                        <option value="High">High</option>
+                        <option value="Critical">Critical</option>
+                      </select>
+                    </div>
+
+                    {/* Objective & Scope */}
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <label
+                        htmlFor="projectObjective"
+                        className="text-xs font-semibold text-text-subtle block"
+                      >
+                        Objective & scope{' '}
+                        <span className="text-[11px] text-text-subtle font-normal">
+                          (Optional)
+                        </span>
+                      </label>
+                      <textarea
+                        id="projectObjective"
+                        rows={3}
+                        placeholder="Describe the project's goals and expected deliverables."
+                        value={project.objective}
+                        onChange={(e) =>
+                          setProject({ ...project, objective: e.target.value })
+                        }
+                        className="w-full bg-background-elevated border border-border-subtle rounded-xs p-3 text-xs sm:text-sm text-text placeholder:text-text-subtle focus:border-primary/50 outline-none transition-colors resize-none leading-relaxed"
+                      />
+                    </div>
                   </div>
                 </div>
 
-                {/* Section 3: Logistics */}
-                <div className="space-y-6">
-                  <div className="flex items-center gap-4 border-b border-border-subtle pb-4">
-                    <Calendar size={14} className="text-status-success" />
-                    <h2 className="text-[10px] font-black text-text-subtle uppercase tracking-[0.2em]">
-                      TIMELINE & SCHEDULE
-                    </h2>
+                {/* AREA B: Team Assignment */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between pb-2 border-b border-border-subtle">
+                    <div className="flex items-center gap-2">
+                      <Users size={15} className="text-secondary" />
+                      <h2 className="text-xs font-semibold text-text">
+                        Team assignment
+                      </h2>
+                    </div>
+                    <span className="text-xs text-text-subtle">
+                      {project.teams.length} assigned
+                    </span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <p className="text-xs text-text-subtle">
+                    Select the squads and engineering disciplines collaborating on this project:
+                  </p>
+
+                  {/* Group B1: Workspace Teams (if any configured) */}
+                  {workspaceTeams.length > 0 && (
                     <div className="space-y-2">
-                      <label className="text-[9px] font-black text-text-subtle uppercase tracking-[0.2em]">
-                        START DATE
+                      <span className="text-xs font-semibold text-text-subtle">
+                        Workspace squads
+                      </span>
+                      <div className="flex flex-wrap gap-2">
+                        {workspaceTeams.map((team) => {
+                          const isSelected = project.teams.includes(team);
+                          return (
+                            <button
+                              key={team}
+                              type="button"
+                              onClick={() => toggleTeam(team)}
+                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xs text-xs font-semibold transition-all cursor-pointer border ${
+                                isSelected
+                                  ? 'bg-primary text-white border-primary shadow-xs'
+                                  : 'bg-background-elevated border-border-subtle text-text-subtle hover:border-border hover:text-text'
+                              }`}
+                            >
+                              {isSelected && <Check size={12} strokeWidth={2.5} />}
+                              <span>{team}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Group B2: Functional Engineering Disciplines */}
+                  <div className="space-y-2">
+                    <span className="text-xs font-semibold text-text-subtle">
+                      Engineering disciplines
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {DEFAULT_DISCIPLINES.map((discipline) => {
+                        const isSelected = project.teams.includes(discipline);
+                        return (
+                          <button
+                            key={discipline}
+                            type="button"
+                            onClick={() => toggleTeam(discipline)}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xs text-xs font-semibold transition-all cursor-pointer border ${
+                              isSelected
+                                ? 'bg-primary text-white border-primary shadow-xs'
+                                : 'bg-background-elevated border-border-subtle text-text-subtle hover:border-border hover:text-text'
+                            }`}
+                          >
+                            {isSelected && <Check size={12} strokeWidth={2.5} />}
+                            <span>{discipline}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* AREA C: Project Timeline */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between pb-2 border-b border-border-subtle">
+                    <div className="flex items-center gap-2">
+                      <Calendar size={15} className="text-status-success" />
+                      <h2 className="text-xs font-semibold text-text">
+                        Project timeline
+                      </h2>
+                    </div>
+                    {durationDays && (
+                      <span className="text-xs text-text-subtle">
+                        Duration: {durationDays} calendar days
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="startDate"
+                        className="text-xs font-semibold text-text-subtle"
+                      >
+                        Start date <span className="text-status-error">*</span>
                       </label>
                       <input
+                        id="startDate"
                         type="date"
+                        required
                         value={project.timeline.start}
-                        onChange={(e) =>
+                        onChange={(e) => {
                           setProject({
                             ...project,
                             timeline: {
                               ...project.timeline,
                               start: e.target.value,
                             },
-                          })
-                        }
-                        className="w-full h-9 bg-background-dark border border-border-subtle px-3 rounded text-text font-black text-[10px] uppercase tracking-widest focus:outline-none focus:border-primary transition-all [color-scheme:dark]"
+                          });
+                          if (fieldErrors.end) {
+                            setFieldErrors((prev) => ({ ...prev, end: null }));
+                          }
+                        }}
+                        className="w-full h-9 bg-background-elevated border border-border-subtle rounded-xs px-3 text-xs sm:text-sm text-text focus:border-primary/50 outline-none transition-colors"
                       />
                     </div>
-                    <div className="space-y-2">
-                      <label className="text-[9px] font-black text-text-subtle uppercase tracking-[0.2em]">
-                        END DATE
+
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="endDate"
+                        className="text-xs font-semibold text-text-subtle"
+                      >
+                        Target delivery date <span className="text-status-error">*</span>
                       </label>
                       <input
+                        id="endDate"
                         type="date"
+                        required
+                        aria-invalid={!!fieldErrors.end}
+                        aria-describedby={fieldErrors.end ? 'end-error' : undefined}
                         value={project.timeline.end}
-                        onChange={(e) =>
+                        onChange={(e) => {
                           setProject({
                             ...project,
                             timeline: {
                               ...project.timeline,
                               end: e.target.value,
                             },
-                          })
-                        }
-                        className="w-full h-9 bg-background-dark border border-border-subtle px-3 rounded text-text font-black text-[10px] uppercase tracking-widest focus:outline-none focus:border-primary transition-all [color-scheme:dark]"
+                          });
+                          if (fieldErrors.end) {
+                            setFieldErrors((prev) => ({ ...prev, end: null }));
+                          }
+                        }}
+                        className={`w-full h-9 bg-background-elevated border rounded-xs px-3 text-xs sm:text-sm text-text focus:border-primary/50 outline-none transition-colors ${
+                          fieldErrors.end ? 'border-status-error' : 'border-border-subtle'
+                        }`}
                       />
+                      {fieldErrors.end && (
+                        <p id="end-error" className="text-xs text-status-error font-medium mt-1">
+                          {fieldErrors.end}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
 
-                {/* Actions */}
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t border-border-subtle">
-                  <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+                {/* Form Actions */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-border-subtle">
+                  <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
                     <button
-                      type="button"
-                      onClick={(e) => onCreate(e)}
+                      type="submit"
                       disabled={isSubmitting}
-                      className="w-full sm:w-auto h-9 px-8 bg-primary text-background-dark hover:bg-primary/90 rounded text-[9px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50"
+                      className="flex-1 sm:flex-initial h-9 px-5 bg-primary hover:bg-primary-hover text-white text-xs font-semibold rounded-xs transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                     >
-                      CREATE PROJECT
+                      {isSubmitting && submitMode === 'active' ? (
+                        <span>Creating project...</span>
+                      ) : (
+                        <span>Create Project</span>
+                      )}
                     </button>
                     <button
                       type="button"
                       onClick={(e) => onCreate(e, true)}
                       disabled={isSubmitting}
-                      className="w-full sm:w-auto h-9 px-6 bg-background-elevated border border-border-subtle text-[9px] font-black uppercase tracking-[0.2em] transition-all rounded"
+                      className="flex-1 sm:flex-initial h-9 px-4 bg-background-elevated hover:bg-card border border-border-subtle hover:border-border text-xs font-semibold text-text rounded-xs transition-colors cursor-pointer disabled:opacity-50"
                     >
-                      SAVE AS DRAFT
+                      {isSubmitting && submitMode === 'draft' ? (
+                        <span>Saving draft...</span>
+                      ) : (
+                        <span>Save as Draft</span>
+                      )}
                     </button>
                   </div>
                   <button
                     type="button"
-                    onClick={() => navigate('/dashboard')}
-                    className="text-[9px] font-black text-text-subtler hover:text-text uppercase tracking-[0.2em] transition-colors py-2"
+                    onClick={onCancel}
+                    className="text-xs font-medium text-text-subtle hover:text-text transition-colors py-2 cursor-pointer"
                   >
-                    CANCEL
+                    Cancel
                   </button>
                 </div>
               </form>
             </div>
           </div>
 
-          {/* Right: Live Preview (Hidden on Mobile, replaced by Summary) */}
-          <div className="hidden lg:block lg:col-span-5 xl:col-span-4 sticky top-24 order-1 lg:order-2">
-            <div className="space-y-4">
-              <h2 className="text-[9px] font-black text-text-subtle uppercase tracking-[0.2em] px-2">
-                PROJECT PREVIEW
-              </h2>
+          {/* Right Column: Live Project Preview */}
+          <div className="lg:col-span-5 xl:col-span-4 sticky top-6 space-y-3">
+            <div className="flex items-center justify-between px-1">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-text-subtle">
+                <Sparkles size={13} className="text-primary" />
+                <span>Live Project Preview</span>
+              </div>
+              <span className="text-xs text-text-subtle font-mono">
+                Proposed Key: <strong className="text-primary font-bold">{derivedKey}</strong>
+              </span>
+            </div>
 
-              <div className="bg-background-elevated border border-border-subtle rounded-xl overflow-hidden shadow-2xl relative">
-                <div className="p-6 space-y-6 relative z-10">
-                  {/* Status Badge */}
-                  <div className="flex justify-between items-start">
-                    <div className="px-2.5 py-1 bg-background-elevated rounded border border-border-subtle">
-                      <p className="text-[8px] font-black tracking-[0.2em] uppercase text-text-subtle">
-                        STATUS: PENDING
-                      </p>
+            <div className="bg-card border border-border-subtle rounded-md p-5 space-y-4">
+              {/* Header: Project Name & Key */}
+              <div className="flex items-start justify-between gap-3 pb-3 border-b border-border-subtle">
+                <div className="space-y-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-xs bg-primary/10 border border-primary/20 flex items-center justify-center text-xs font-bold text-primary shrink-0">
+                      {(project.name || 'P').charAt(0).toUpperCase()}
                     </div>
-                  </div>
-
-                  {/* Project Name & Objective */}
-                  <div className="space-y-2">
-                    <h2
-                      className={`font-black uppercase tracking-tight break-words transition-all duration-500 ${project.name ? 'text-xl text-text' : 'text-lg text-text-subtler'}`}
-                    >
-                      {project.name || 'PROJECT_NAME'}
-                    </h2>
-                    <div className="w-8 h-1 bg-primary/40" />
-                    <p
-                      className={`text-[9px] leading-relaxed uppercase tracking-[0.1em] transition-all duration-300 ${project.objective ? 'text-text-subtle' : 'text-text/5'}`}
-                    >
-                      {project.objective ||
-                        'Your project description will appear here...'}
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border-subtle">
-                    <div className="space-y-1">
-                      <p className="text-[8px] font-black text-text-subtler uppercase tracking-[0.1em]">
-                        TYPE
-                      </p>
-                      <p className="text-[9px] font-black text-text uppercase tracking-wider">
-                        {project.type}
-                      </p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[8px] font-black text-text-subtler uppercase tracking-[0.1em]">
-                        TIMELINE
-                      </p>
-                      <div className="flex items-center gap-2 text-text">
-                        <Calendar size={10} className="text-secondary" />
-                        <p className="text-[9px] font-black uppercase tracking-wider">
-                          {project.timeline.start || 'TBD'} —{' '}
-                          {project.timeline.end || 'TBD'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Team Reveal */}
-                  <div className="space-y-3">
-                    <p className="text-[8px] font-black text-text-subtler uppercase tracking-[0.1em]">
-                      ASSIGNED TEAMS
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {project.teams.length > 0 ? (
-                        project.teams.map((team) => (
-                          <span
-                            key={team}
-                            className="px-2 py-1 bg-background-elevated border border-border-subtle rounded text-[8px] font-black text-text-subtle uppercase tracking-[0.1em]"
-                          >
-                            {team}
-                          </span>
-                        ))
-                      ) : (
-                        <div className="w-full py-3 border border-dashed border-border-subtler rounded flex items-center justify-center">
-                          <span className="text-[8px] text-text-subtler font-black uppercase tracking-widest">
-                            AWAITING TEAM SELECTION
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* ID / Metadata */}
-                  <div className="pt-4 border-t border-border-subtle flex justify-end items-center opacity-20">
-                    <span className="text-[9px] font-black text-text tracking-[0.1em]">
-                      ID: NEXA-
-                      {project.name ? project.name.substring(0, 4) : '####'}
+                    <span className="font-bold text-sm text-text truncate">
+                      {project.name || 'Untitled Project'}
                     </span>
                   </div>
+                  <p className="text-xs text-text-subtle font-mono">
+                    Proposed Key: <strong className="text-primary font-bold">{derivedKey}</strong> (Task prefix: {derivedKey}-1)
+                  </p>
+                </div>
+                <span className="text-xs font-medium px-2 py-0.5 rounded-xs bg-status-success/10 text-status-success border border-status-success/20 shrink-0">
+                  {submitMode === 'draft' ? 'Draft' : 'Active'}
+                </span>
+              </div>
+
+              {/* Description */}
+              <div className="space-y-1">
+                <span className="text-xs font-semibold text-text-subtle">
+                  Objective & scope
+                </span>
+                <p className="text-xs text-text-subtle leading-relaxed line-clamp-3">
+                  {project.objective ||
+                    "Describe the project's goals and expected deliverables."}
+                </p>
+              </div>
+
+              {/* Attributes: Type, Priority, Timeline */}
+              <div className="grid grid-cols-2 gap-3 pt-3 border-t border-border-subtle text-xs">
+                <div>
+                  <span className="text-xs font-semibold text-text-subtle block">
+                    Project type
+                  </span>
+                  <span className="text-xs font-medium text-text mt-0.5 block">
+                    {project.type}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-xs font-semibold text-text-subtle block">
+                    Priority
+                  </span>
+                  <span className="text-xs font-medium text-text mt-0.5 block">
+                    {project.priority}
+                  </span>
+                </div>
+                <div className="col-span-2 space-y-0.5">
+                  <span className="text-xs font-semibold text-text-subtle block">
+                    Project timeline
+                  </span>
+                  <div className="flex items-center gap-1.5 text-xs text-text">
+                    <Calendar size={12} className="text-secondary shrink-0" />
+                    <span>
+                      {formatDate(project.timeline.start)} – {formatDate(project.timeline.end)}
+                    </span>
+                    {durationDays && (
+                      <span className="text-text-subtle">
+                        ({durationDays} days)
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Assigned Teams */}
+              <div className="pt-3 border-t border-border-subtle space-y-1.5">
+                <div className="flex justify-between items-center text-xs font-semibold text-text-subtle">
+                  <span>Assigned teams</span>
+                  <span>{project.teams.length}</span>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {project.teams.length > 0 ? (
+                    project.teams.map((t) => (
+                      <span
+                        key={t}
+                        className="text-xs font-medium px-2 py-0.5 bg-background-elevated border border-border-subtle rounded-xs text-text"
+                      >
+                        {t}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-xs text-text-subtle italic">
+                      No teams selected
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -395,42 +711,5 @@ const ProjectSetup = () => {
     </div>
   );
 };
-
-/* Mobile-Specific Summary Component */
-const MobileSummary = ({ project }) => (
-  <div className="bg-background-elevated border border-border-subtle rounded-xl p-4 space-y-4 animate-in slide-in-from-top-2 relative overflow-hidden">
-    <div className="flex justify-between items-start">
-      <div className="space-y-1">
-        <h2
-          className={`font-black uppercase tracking-tight leading-none ${project.name ? 'text-lg text-text' : 'text-md text-text-subtler'}`}
-        >
-          {project.name || 'NEW_PROJECT'}
-        </h2>
-        <p className="text-[8px] font-black text-primary uppercase tracking-[0.2em]">
-          PROJECT SUMMARY
-        </p>
-      </div>
-    </div>
-
-    <div className="grid grid-cols-2 gap-4 pt-3 border-t border-border-subtler">
-      <div className="space-y-1">
-        <p className="text-[8px] font-black text-text-subtler uppercase tracking-widest">
-          TIMELINE
-        </p>
-        <p className="text-[9px] font-black text-text uppercase tracking-widest">
-          {project.timeline.start || 'TBD'} — {project.timeline.end || 'TBD'}
-        </p>
-      </div>
-      <div className="text-right">
-        <p className="text-[8px] font-black text-text-subtler uppercase tracking-widest">
-          TEAMS
-        </p>
-        <span className="text-[9px] font-black text-primary uppercase tracking-widest">
-          {project.teams.length} ASSIGNED
-        </span>
-      </div>
-    </div>
-  </div>
-);
 
 export default ProjectSetup;

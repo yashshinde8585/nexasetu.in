@@ -1,7 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 
-// An accessible, high-density input field with focus and error states.
 const Input = ({
   type = 'text',
   placeholder = '',
@@ -17,20 +16,19 @@ const Input = ({
         type={type}
         id={id}
         placeholder={placeholder}
-        className={`w-full px-3 py-2 rounded border focus:outline-none transition-all text-[10px] font-black uppercase tracking-widest placeholder:text-white/20 ${
+        className={`w-full px-3 py-2 rounded-md border focus:outline-none transition-all text-xs sm:text-sm font-medium placeholder:text-text-subtler ${
           isError
-            ? 'border-status-error focus:border-status-error'
-            : 'border-white/20 focus:border-primary focus:bg-white/5'
+            ? 'border-status-error focus:border-status-error focus:ring-1 focus:ring-status-error/40'
+            : 'border-border-subtle focus:border-primary focus:ring-1 focus:ring-primary/40'
         } ${className}`}
         style={{
-          backgroundColor: 'var(--color-background, #000000)',
-          color: 'var(--color-text, #ffffff)',
-          borderColor: 'var(--color-border-subtle, rgba(255,255,255,0.2))',
+          backgroundColor: 'var(--color-background-elevated)',
+          color: 'var(--color-text)',
         }}
         {...props}
       />
       {isError && errorMsg && (
-        <span className="text-xs text-status-error/90 mt-1 block px-1 animate-[fadeIn_200ms_ease_forwards,slideInFromTop_200ms_ease_forwards]">
+        <span className="text-xs text-status-error mt-1 block px-0.5 animate-[fadeIn_150ms_ease_forwards]">
           {errorMsg}
         </span>
       )}

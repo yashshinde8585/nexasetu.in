@@ -1,13 +1,14 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 import {
   ShieldAlert,
-  FileSearch,
+  FileQuestion,
   Lock,
   AlertTriangle,
-  Home,
+  RotateCcw,
+  LayoutDashboard,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import Button from '../atoms/Button';
 
 const StateLayout = ({
   icon: Icon,
@@ -16,72 +17,109 @@ const StateLayout = ({
   actionText,
   onAction,
   errorCode,
+  secondaryActionText = 'Go to Dashboard',
+  onSecondaryAction,
+  iconColorClass = 'text-primary',
+  iconBgClass = 'bg-primary/10 border-primary/20',
 }) => {
   const navigate = useNavigate();
 
+  const handleSecondary =
+    onSecondaryAction ||
+    (() => {
+      try {
+        navigate('/dashboard');
+      } catch {
+        window.location.href = '/dashboard';
+      }
+    });
+
   return (
-    <div className="min-h-[70vh] flex flex-col items-center justify-center p-8 text-center animate-in fade-in duration-500">
-      <div className="relative mb-6">
-        <div className="absolute inset-0 bg-white/5 blur-2xl rounded-full"></div>
-        <Icon
-          className="text-white relative z-10 opacity-80"
-          size={64}
-          strokeWidth={1}
-        />
+    <div
+      role="alert"
+      aria-live="polite"
+      className="min-h-[60vh] flex flex-col items-center justify-center p-6 sm:p-8 text-center max-w-md mx-auto space-y-4 animate-in fade-in duration-300"
+    >
+      <div
+        className={`w-12 h-12 rounded-full border flex items-center justify-center mb-1 shrink-0 ${iconBgClass} ${iconColorClass}`}
+      >
+        <Icon size={24} />
       </div>
 
       {errorCode && (
-        <span className="text-[10px] font-mono text-white/40 mb-2 tracking-[0.2em] uppercase">
-          Error Code: {errorCode}
+        <span className="text-[11px] font-mono text-text-subtler tracking-wider uppercase">
+          {errorCode}
         </span>
       )}
 
-      <h1 className="text-2xl font-black text-white mb-3 tracking-tight uppercase">
-        {title}
-      </h1>
+      <div className="space-y-1.5">
+        <h1 className="text-lg sm:text-xl font-bold text-text">
+          {title}
+        </h1>
+        <p className="text-xs sm:text-sm text-text-subtle leading-relaxed">
+          {message}
+        </p>
+      </div>
 
-      <p className="text-white/60 text-sm max-w-md mb-8 leading-relaxed font-medium">
-        {message}
-      </p>
-
-      <div className="flex gap-4">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => navigate('/')}
-          className="border-white/10 text-white/60 hover:text-white"
-        >
-          <Home size={14} className="mr-2" />
-          Home
-        </Button>
-
+      <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
         {actionText && (
-          <Button variant="primary" size="sm" onClick={onAction}>
-            {actionText}
-          </Button>
+          <button
+            type="button"
+            onClick={onAction}
+            className="h-9 px-4 bg-primary hover:bg-primary-hover text-white text-xs font-semibold rounded-xs transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+          >
+            {actionText === 'Try again' ? <RotateCcw size={14} /> : null}
+            <span>{actionText}</span>
+          </button>
         )}
+
+        <button
+          type="button"
+          onClick={handleSecondary}
+          className="h-9 px-4 border border-border-subtle bg-background-elevated hover:bg-card text-text text-xs font-semibold rounded-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
+        >
+          <LayoutDashboard size={14} />
+          <span>{secondaryActionText}</span>
+        </button>
       </div>
     </div>
   );
 };
 
+StateLayout.propTypes = {
+  icon: PropTypes.elementType.isRequired,
+  title: PropTypes.string.isRequired,
+  message: PropTypes.string.isRequired,
+  actionText: PropTypes.string,
+  onAction: PropTypes.func,
+  errorCode: PropTypes.string,
+  secondaryActionText: PropTypes.string,
+  onSecondaryAction: PropTypes.func,
+  iconColorClass: PropTypes.string,
+  iconBgClass: PropTypes.string,
+};
+
 export const AccessDenied = () => (
   <StateLayout
     icon={ShieldAlert}
-    title="Access Restricted"
-    message="Your current credentials do not have the clearance required to access this sector of the workspace."
-    errorCode="403_FORBIDDEN"
-    actionText="Request Access"
+    iconColorClass="text-status-warning"
+    iconBgClass="bg-status-warning/10 border-status-warning/20"
+    title="Access restricted"
+    message="You don't have permission to view this resource. Contact your workspace administrator if you need access."
+    errorCode="403 Forbidden"
+    actionText="Request access"
     onAction={() => (window.location.href = 'mailto:admin@nexasetu.ai')}
   />
 );
 
 export const NotFound = () => (
   <StateLayout
-    icon={FileSearch}
-    title="Resource Not Found"
-    message="The mission data you are looking for has been moved, deleted, or never existed in this timeline."
-    errorCode="404_NOT_FOUND"
+    icon={FileQuestion}
+    iconColorClass="text-text-subtle"
+    iconBgClass="bg-background-elevated border-border-subtle"
+    title="Page not found"
+    message="The page or resource you are looking for doesn't exist or has been moved."
+    errorCode="404 Not Found"
   />
 );
 
@@ -90,24 +128,34 @@ export const AuthRequired = () => {
   return (
     <StateLayout
       icon={Lock}
-      title="Authentication Required"
-      message="This secure zone requires an active session. Please authenticate to proceed with the mission."
-      errorCode="401_UNAUTHORIZED"
-      actionText="Sign In"
+      iconColorClass="text-primary"
+      iconBgClass="bg-primary/10 border-primary/20"
+      title="Authentication required"
+      message="Your session may have expired. Please sign in to access your workspace."
+      errorCode="401 Unauthorized"
+      actionText="Sign in"
       onAction={() => navigate('/login')}
+      secondaryActionText="Go to Home"
+      onSecondaryAction={() => navigate('/')}
     />
   );
 };
 
-export const ServerError = () => (
+export const ServerError = ({ onRetry }) => (
   <StateLayout
     icon={AlertTriangle}
-    title="System Instability"
-    message="The uplink to the tactical server has encountered a critical synchronization failure. We are attempting to restore connection."
-    errorCode="500_SERVER_ERROR"
-    actionText="Retry Connection"
-    onAction={() => window.location.reload()}
+    iconColorClass="text-status-error"
+    iconBgClass="bg-status-error/10 border-status-error/20"
+    title="Something went wrong"
+    message="We encountered an issue communicating with the server. Please try again."
+    errorCode="500 Server Error"
+    actionText="Try again"
+    onAction={onRetry || (() => window.location.reload())}
   />
 );
+
+ServerError.propTypes = {
+  onRetry: PropTypes.func,
+};
 
 export default StateLayout;

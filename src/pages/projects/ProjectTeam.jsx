@@ -2,27 +2,19 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Users,
-  Box,
   Search,
-  Mail,
-  Clock,
   ShieldCheck,
-  Rocket,
   AlertCircle,
-  Loader2,
   ChevronLeft,
   ChevronRight,
   MoreVertical,
   Download,
   RefreshCw,
   CheckCircle,
-  UserMinus,
   Check,
-  UserPlus,
-  Plus,
   AlertTriangle,
+  Layers,
 } from 'lucide-react';
-import { ResponsiveContainer, AreaChart, Area } from 'recharts';
 import toast from 'react-hot-toast';
 
 // Context & Services
@@ -37,27 +29,39 @@ import { useDebounce } from '../../hooks/useDebounce';
 // Atomic Components
 import Skeleton from '../../components/atoms/Skeleton';
 import TacticalModal from '../../components/molecules/TacticalModal';
+import { ActionPortalMenu, ActionSubmenuPortal } from '../../components/molecules/ActionPortalMenu';
 
 const ProjectTeamSkeleton = () => (
-  <div className="max-w-screen-2xl mx-auto px-4 lg:px-6 py-6 space-y-6 bg-background min-h-screen">
-    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+  <div className="max-w-screen-2xl mx-auto px-4 lg:px-6 py-6 space-y-6 bg-background min-h-screen font-sans">
+    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-border-subtle/50 pb-4">
       <div className="space-y-2">
-        <Skeleton className="h-8 w-64 animate-pulse" />
-        <Skeleton className="h-3 w-48 animate-pulse" />
+        <Skeleton className="h-8 w-64 rounded-lg animate-pulse" />
+        <Skeleton className="h-4 w-72 rounded-md animate-pulse" />
       </div>
       <div className="flex gap-3">
-        <Skeleton className="h-9 w-64 animate-pulse" />
-        <Skeleton className="h-9 w-32 animate-pulse" />
+        <Skeleton className="h-9 w-60 rounded-lg animate-pulse" />
+        <Skeleton className="h-9 w-24 rounded-lg animate-pulse" />
       </div>
     </div>
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
-      {[1, 2, 3, 4, 5, 6].map((i) => (
-        <Skeleton key={i} className="h-28 w-full rounded-xl animate-pulse" />
+    <div className="bg-card border border-border-subtle rounded-xl p-4 sm:p-5 shadow-xs grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-border-subtle/50">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="py-3 sm:py-0 px-2 sm:px-5 space-y-2">
+          <Skeleton className="h-4 w-28 rounded-md animate-pulse" />
+          <Skeleton className="h-7 w-16 rounded-md animate-pulse" />
+          <Skeleton className="h-3 w-36 rounded-md animate-pulse" />
+        </div>
       ))}
     </div>
-    <div className="space-y-4">
-      <Skeleton className="h-4 w-40 animate-pulse" />
-      <Skeleton className="h-[400px] w-full rounded-xl animate-pulse" />
+    <div className="bg-card border border-border-subtle rounded-xl p-4 sm:p-5 space-y-4">
+      <div className="flex justify-between items-center">
+        <Skeleton className="h-5 w-40 rounded-md animate-pulse" />
+        <Skeleton className="h-4 w-28 rounded-md animate-pulse" />
+      </div>
+      <div className="space-y-3 pt-2">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <Skeleton key={i} className="h-12 w-full rounded-lg animate-pulse" />
+        ))}
+      </div>
     </div>
   </div>
 );
@@ -68,12 +72,27 @@ const ProjectTeam = () => {
   const { user } = useAuth();
   const { hasPermission } = usePermissions();
 
+  // Permission Checks
+  const canManageProjects =
+    hasPermission(PERMISSIONS.EDIT_PROJECT) ||
+    user?.role === USER_ROLES.WORKSPACE_ADMIN ||
+    user?.role === USER_ROLES.SUPER_ADMIN ||
+    user?.role === USER_ROLES.WORKSPACE_MANAGER;
+
+  const canManageUsers =
+    hasPermission(PERMISSIONS.MANAGE_ROLES) ||
+    user?.role === USER_ROLES.WORKSPACE_ADMIN ||
+    user?.role === USER_ROLES.SUPER_ADMIN;
+
+  const canPerformAnyAction = canManageProjects || canManageUsers;
+
   // Data & Pagination State
   const [data, setData] = useState({
     projectName: '',
     members: [],
     total: 0,
     stats: null,
+    projectDetail: null,
   });
   const [allProjects, setAllProjects] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -85,9 +104,10 @@ const ProjectTeam = () => {
   // UI & Loading States
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [lastUpdated, setLastUpdated] = useState(new Date());
-  const [activeDropdownId, setActiveDropdownId] = useState(null);
-  const [activeProjectMenuId, setActiveProjectMenuId] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [menuAnchor, setMenuAnchor] = useState(null); // { member, triggerEl }
+  const [isSubmenuOpen, setIsSubmenuOpen] = useState(false);
+  const [submenuTriggerEl, setSubmenuTriggerEl] = useState(null);
   const [actionLoading, setActionLoading] = useState({
     updating: null,
   });
@@ -128,7 +148,7 @@ const ProjectTeam = () => {
             search: debouncedSearch,
             projectId,
           }),
-          ProjectService.getProjects(),
+          ProjectService.getProjects().catch(() => ({ projects: [] })),
           projectDetailPromise,
         ]);
 
@@ -144,14 +164,23 @@ const ProjectTeam = () => {
 
         setAllProjects(projectArray);
 
-        let projectName =
-          projectDetail?.data?.name || projectDetail?.name || 'Project Sector';
+        const fetchedProject = projectDetail?.data?.project || projectDetail?.data || projectDetail?.project || projectDetail;
+        const projectName =
+          fetchedProject?.name ||
+          (projectId === 'unassigned' ? 'Unassigned Members' : 'Project Team');
 
         setData({
           projectName,
           members,
-          total: teamRes?.total || 0,
+          total: teamRes?.total || members.length,
           stats: teamRes?.stats || null,
+          projectDetail: fetchedProject || null,
+          activeCount:
+            typeof teamRes?.activeCount === 'number'
+              ? teamRes.activeCount
+              : typeof teamRes?.stats?.projectActiveCount === 'number'
+              ? teamRes.stats.projectActiveCount
+              : null,
         });
         setLastUpdated(new Date());
       } catch (err) {
@@ -170,16 +199,6 @@ const ProjectTeam = () => {
     return () => abortController.abort();
   }, [projectId, fetchData]);
 
-  // Click outside listener to close action menus
-  useEffect(() => {
-    const handleClickOutside = () => {
-      setActiveDropdownId(null);
-      setActiveProjectMenuId(null);
-    };
-    window.addEventListener('click', handleClickOutside);
-    return () => window.removeEventListener('click', handleClickOutside);
-  }, []);
-
   /**
    * Action Handlers
    */
@@ -187,14 +206,15 @@ const ProjectTeam = () => {
     try {
       setActionLoading((prev) => ({ ...prev, updating: memberId }));
       await TeamService.updateMemberProject(memberId, targetProjectId);
-      toast.success('Project sector reallocated successfully.');
+      toast.success('Member project reassigned successfully.');
       fetchData();
     } catch (err) {
       toast.error('Failed to update project assignment.');
     } finally {
       setActionLoading((prev) => ({ ...prev, updating: null }));
-      setActiveProjectMenuId(null);
-      setActiveDropdownId(null);
+      setMenuAnchor(null);
+      setIsSubmenuOpen(false);
+      setSubmenuTriggerEl(null);
     }
   };
 
@@ -217,111 +237,43 @@ const ProjectTeam = () => {
   };
 
   /**
-   * CSV Exporter
-   */
-  const handleExportCSV = async () => {
-    try {
-      const toastId = toast.loading('Preparing CSV export...');
-      const res = await TeamService.getMembers({
-        limit: 10000,
-        search: debouncedSearch,
-        projectId,
-      });
-      const exportItems = res?.items || [];
-
-      if (!exportItems.length) {
-        toast.error('No data to export', { id: toastId });
-        return;
-      }
-
-      const headers = [
-        'Name',
-        'Email',
-        'Role',
-        'Status',
-        'MFA Status',
-        'Joined On',
-      ];
-      const rows = exportItems.map((item) => [
-        item.name,
-        item.email,
-        item.jobTitle || item.role,
-        item.status,
-        item.mfaEnabled ? 'Enabled' : 'Disabled',
-        item.joinedOn ? new Date(item.joinedOn).toLocaleDateString() : 'N/A',
-      ]);
-
-      const csvContent =
-        'data:text/csv;charset=utf-8,\uFEFF' +
-        [
-          headers.join(','),
-          ...rows.map((r) =>
-            r.map((val) => `"${String(val).replace(/"/g, '""')}"`).join(',')
-          ),
-        ].join('\n');
-
-      const encodedUri = encodeURI(csvContent);
-      const link = document.createElement('a');
-      link.setAttribute('href', encodedUri);
-      link.setAttribute(
-        'download',
-        `${data.projectName.toLowerCase().replace(/\s+/g, '_')}_team_${new Date().toISOString().slice(0, 10)}.csv`
-      );
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      toast.success('Project team CSV exported.', { id: toastId });
-    } catch (error) {
-      toast.error('Failed to export CSV');
-    }
-  };
-
-  /**
    * Formatting Helpers
    */
-  const getRoleBadgeClass = (role, jobTitle) => {
-    const r = (role || jobTitle || '').toUpperCase();
-    if (r === 'WORKSPACE_ADMIN' || r === 'ADMIN')
-      return 'bg-purple-500/10 border border-purple-500/20 text-purple-400';
-    if (r.includes('TECH_LEAD') || r.includes('LEAD'))
-      return 'bg-blue-500/10 border border-blue-500/20 text-blue-400';
-    if (r.includes('SENIOR'))
-      return 'bg-indigo-500/10 border border-indigo-500/20 text-indigo-400';
-    if (
-      r.includes('SOFTWARE_ENGINEER') ||
-      r.includes('PROJECT_MEMBER') ||
-      r.includes('DEVELOPER') ||
-      r.includes('SWE') ||
-      r.includes('ENGINEER')
-    )
-      return 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400';
-    if (r.includes('QA'))
-      return 'bg-teal-500/10 border border-teal-500/20 text-teal-400';
-    if (r.includes('HR') || r.includes('MANAGER'))
-      return 'bg-orange-500/10 border border-orange-500/20 text-orange-400';
-    if (r.includes('INTERN'))
-      return 'bg-gray-500/10 border border-gray-500/20 text-gray-400';
-    return 'bg-background-elevated border border-border-subtle text-text-subtle';
-  };
-
   const getRoleDisplayName = (role, jobTitle) => {
     const r = role?.toUpperCase();
-    if (r === 'WORKSPACE_ADMIN' || r === 'ADMIN') return 'Administrator';
+    if (r === 'WORKSPACE_ADMIN') return 'Workspace Admin';
+    if (r === 'ADMIN') return 'Administrator';
+    if (r === 'SUPER_ADMIN') return 'Super Admin';
     if (r === 'TECH_LEAD') return 'Tech Lead';
+    if (r === 'WORKSPACE_MANAGER' || r === 'PROJECT_ADMIN')
+      return 'Project Admin';
+    if (r === 'SENIOR_ENGINEER') return 'Senior Engineer';
+    if (r === 'SOFTWARE_ENGINEER') return 'Software Engineer';
+    if (r === 'QA_ENGINEER') return 'QA Engineer';
     if (r === 'HR_MANAGER') return 'HR Manager';
-    return jobTitle || 'Developer';
+    if (r === 'INTERN') return 'Intern';
+    return jobTitle || (role ? role.replace(/_/g, ' ') : 'Developer');
+  };
+
+  const getRoleBadgeClass = (role, jobTitle) => {
+    const r = (role || jobTitle || '').toUpperCase();
+    if (r.includes('ADMIN') || r.includes('SUPER_ADMIN'))
+      return 'bg-primary/10 border border-primary/20 text-primary';
+    if (r.includes('TECH_LEAD') || r.includes('LEAD') || r.includes('MANAGER'))
+      return 'bg-primary/10 border border-primary/20 text-primary';
+    return 'bg-background-elevated border border-border-subtle text-text-subtle';
   };
 
   const getStatusBadgeClass = (status) => {
     switch (status) {
       case 'Active':
-        return 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400';
+        return 'bg-status-success/10 border border-status-success/20 text-status-success';
       case 'Inactive':
-        return 'bg-blue-500/10 border border-blue-500/20 text-blue-400';
+        return 'bg-background-elevated border border-border-subtle text-text-subtle';
       case 'Deactivated':
-        return 'bg-rose-500/10 border border-rose-500/20 text-rose-400';
+        return 'bg-status-error/10 border border-status-error/20 text-status-error';
       case 'Invited':
-        return 'bg-amber-500/10 border border-amber-500/20 text-amber-400';
+        return 'bg-status-warning/10 border border-status-warning/20 text-status-warning';
       default:
         return 'bg-background-elevated border border-border-subtle text-text-subtle';
     }
@@ -349,22 +301,94 @@ const ProjectTeam = () => {
     });
   };
 
-  const getTrendColor = (label, val) => {
-    if (label === 'inactiveUsers' || label === 'deactivatedUsers') {
-      return val <= 0 ? 'text-emerald-400' : 'text-rose-400';
+  /**
+   * CSV Exporter
+   */
+  const handleExportCSV = async () => {
+    if (!canPerformAnyAction) {
+      toast.error('You do not have permission to export project team data.');
+      return;
     }
-    return val >= 0 ? 'text-emerald-400' : 'text-rose-400';
+    try {
+      const toastId = toast.loading('Preparing CSV export...');
+      const res = await TeamService.getMembers({
+        limit: 10000,
+        search: debouncedSearch,
+        projectId,
+      });
+      const exportItems = res?.items || res?.members || [];
+
+      if (!exportItems.length) {
+        toast.error('No data to export', { id: toastId });
+        return;
+      }
+
+      const sanitizeCSVField = (val) => {
+        if (val == null) return '""';
+        let str = String(val);
+        // Neutralize CSV formula injection (CWE-1236)
+        if (/^[=+\-@\t\r]/.test(str)) {
+          str = `'${str}`;
+        }
+        return `"${str.replace(/"/g, '""')}"`;
+      };
+
+      const headers = [
+        'Name',
+        'Email',
+        'Role',
+        'Status',
+        'MFA Status',
+        'Joined On',
+      ];
+      const rows = exportItems.map((item) => [
+        item.name,
+        item.email,
+        getRoleDisplayName(item.role, item.jobTitle),
+        item.status,
+        item.mfaEnabled ? 'Enabled' : 'Disabled',
+        item.joinedOn ? new Date(item.joinedOn).toLocaleDateString() : 'N/A',
+      ]);
+
+      const csvContent =
+        '\uFEFF' +
+        [
+          headers.map(sanitizeCSVField).join(','),
+          ...rows.map((r) => r.map(sanitizeCSVField).join(',')),
+        ].join('\r\n');
+
+      let downloadUrl;
+      if (typeof window !== 'undefined' && window.URL?.createObjectURL) {
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        downloadUrl = window.URL.createObjectURL(blob);
+      } else {
+        downloadUrl = encodeURI('data:text/csv;charset=utf-8,' + csvContent);
+      }
+
+      const link = document.createElement('a');
+      link.setAttribute('href', downloadUrl);
+      const safeProjectSlug = (data.projectName || 'project')
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '_');
+      link.setAttribute(
+        'download',
+        `${safeProjectSlug}_team_${new Date().toISOString().slice(0, 10)}.csv`
+      );
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      if (typeof window !== 'undefined' && window.URL?.revokeObjectURL && downloadUrl.startsWith('blob:')) {
+        window.URL.revokeObjectURL(downloadUrl);
+      }
+      toast.success('Project team CSV exported.', { id: toastId });
+    } catch (error) {
+      toast.error('Failed to export CSV');
+    }
   };
 
-  const stats = data.stats || {
-    totalUsers: { count: 0, growth: 0, trend: [] },
-    activeUsers: { count: 0, growth: 0, trend: [] },
-    newUsers: { count: 0, growth: 0, trend: [] },
-    inactiveUsers: { count: 0, growth: 0, trend: [] },
-    deactivatedUsers: { count: 0, growth: 0, trend: [] },
-    mfaEnabled: { count: 0, percentage: 0 },
-  };
-
+  /**
+   * Sorting & Pagination
+   */
   const handleSort = (key) => {
     let direction = 'asc';
     if (sortConfig.key === key && sortConfig.direction === 'asc') {
@@ -385,6 +409,9 @@ const ProjectTeam = () => {
           bValue = getRoleDisplayName(b.role, b.jobTitle);
         }
 
+        if (aValue === undefined || aValue === null) aValue = '';
+        if (bValue === undefined || bValue === null) bValue = '';
+
         if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
         if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
@@ -395,335 +422,338 @@ const ProjectTeam = () => {
 
   const totalPages = Math.ceil(data.total / pageSize) || 1;
 
-  const cardConfigs = [
-    {
-      label: 'Total Members',
-      key: 'totalUsers',
-      color: '#818CF8',
-      icon: <Users size={14} className="text-indigo-400" />,
-    },
-    {
-      label: 'Active Members (30d)',
-      key: 'activeUsers',
-      color: '#34D399',
-      icon: <CheckCircle size={14} className="text-emerald-400" />,
-    },
-    {
-      label: 'New Members (30d)',
-      key: 'newUsers',
-      color: '#60A5FA',
-      icon: <UserPlus size={14} className="text-blue-400" />,
-    },
-    {
-      label: 'Inactive Members',
-      key: 'inactiveUsers',
-      color: '#F59E0B',
-      icon: <Clock size={14} className="text-amber-400" />,
-    },
-    {
-      label: 'Deactivated Members',
-      key: 'deactivatedUsers',
-      color: '#EF4444',
-      icon: <UserMinus size={14} className="text-rose-400" />,
-    },
-  ];
+  // 3 Simplified Metrics Calculation
+  const activeMembersCount = useMemo(() => {
+    if (typeof data.activeCount === 'number') {
+      return data.activeCount;
+    }
+    if (typeof data.stats?.projectActiveCount === 'number') {
+      return data.stats.projectActiveCount;
+    }
+    if (
+      data.stats?.activeUsers?.count !== undefined &&
+      data.stats?.totalUsers?.count === data.total
+    ) {
+      return data.stats.activeUsers.count;
+    }
+    return (data.members || []).filter((m) => m.status === 'Active').length;
+  }, [data.activeCount, data.stats, data.total, data.members]);
+
+  const assignedTeamsCount = useMemo(() => {
+    if (Array.isArray(data.projectDetail?.teams)) {
+      return data.projectDetail.teams.length;
+    }
+    if (typeof data.projectDetail?.teamsCount === 'number') {
+      return data.projectDetail.teamsCount;
+    }
+    const distinctTeams = new Set();
+    (data.members || []).forEach((m) => {
+      if (m.team?.name) distinctTeams.add(m.team.name);
+      else if (m.team && typeof m.team === 'string') distinctTeams.add(m.team);
+      else if (m.squad) distinctTeams.add(m.squad);
+    });
+    if (distinctTeams.size > 0) return distinctTeams.size;
+
+    return data.stats?.assignedTeams ?? (data.total > 0 ? 1 : 0);
+  }, [data.projectDetail, data.members, data.stats, data.total]);
 
   if (loading && !data.members.length) return <ProjectTeamSkeleton />;
 
   return (
     <div className="max-w-screen-2xl mx-auto px-4 lg:px-6 py-6 space-y-6 bg-background text-text min-h-screen flex flex-col font-sans">
       {/* 1. Header Row */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-border-subtler pb-4">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-border-subtle/60 pb-4">
         <div className="space-y-1">
-          <h1 className="text-lg font-black tracking-widest uppercase text-text">
+          <h1 className="text-xl sm:text-2xl font-bold text-text tracking-tight">
             {data.projectName}
           </h1>
-          <p className="text-text-subtle text-[9px] font-black uppercase tracking-[0.2em]">
-            Manage allocated sector personnel and project directory.
+          <p className="text-xs sm:text-sm text-text-subtle">
+            {canPerformAnyAction
+              ? 'Manage project members, roles, and assignments.'
+              : 'View project members, roles, and team assignments.'}
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <div className="relative group min-w-[200px]">
+          <div className="relative group min-w-[220px]">
             <Search
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-text-subtler group-focus-within:text-primary transition-colors"
-              size={12}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-text-subtle group-focus-within:text-primary transition-colors"
+              size={14}
             />
             <input
               type="text"
-              placeholder="Search members..."
-              className="w-full h-8 bg-background-elevated border border-border-subtle text-text rounded px-4 pl-9 focus:outline-none focus:border-primary/50 transition-all text-[9px] font-black uppercase tracking-widest placeholder:text-text-subtler"
+              aria-label="Search members"
+              placeholder="Search by name or email..."
+              className="w-full h-9 bg-background-elevated border border-border-subtle text-text rounded-lg px-4 pl-9 focus:outline-none focus:border-primary/50 transition-all text-xs placeholder:text-text-subtle"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
 
-          <button
-            onClick={handleExportCSV}
-            disabled={!data.total}
-            className="h-8 px-4 bg-background-elevated border border-border-subtle hover:border-border-subtle/50 disabled:opacity-40 text-text font-black uppercase tracking-[0.15em] text-[9px] rounded-sm transition-all flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer"
-          >
-            <Download size={11} className="text-text-subtle" /> Export
-          </button>
+          {canPerformAnyAction && (
+            <button
+              onClick={handleExportCSV}
+              disabled={!data.total}
+              aria-label="Export members as CSV"
+              className="h-9 px-3.5 bg-background-elevated border border-border-subtle hover:bg-background-elevated/80 disabled:opacity-40 text-text font-medium text-xs rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:cursor-not-allowed"
+            >
+              <Download size={13} className="text-text-subtle" />
+              <span>Export CSV</span>
+            </button>
+          )}
         </div>
       </div>
 
       {error && (
-        <div className="bg-status-error/5 border border-status-error/30 p-4 rounded-md flex items-start gap-4 animate-in fade-in duration-300">
-          <AlertCircle
-            className="text-status-error shrink-0 mt-0.5"
-            size={16}
-          />
-          <div className="flex-1">
-            <h4 className="text-[10px] font-black text-text uppercase tracking-widest mb-1">
-              Error fetching project directory
-            </h4>
-            <p className="text-[9px] text-text-subtle font-black uppercase tracking-widest">
-              {error}
-            </p>
+        <div className="bg-status-error/5 border border-status-error/30 p-4 rounded-xl flex items-center justify-between gap-4 animate-in fade-in duration-300">
+          <div className="flex items-center gap-3">
+            <AlertCircle className="text-status-error shrink-0" size={18} />
+            <div>
+              <h4 className="text-xs font-semibold text-text">
+                Error Loading Project Directory
+              </h4>
+              <p className="text-xs text-text-subtle mt-0.5">{error}</p>
+            </div>
           </div>
           <button
             onClick={() => fetchData()}
-            className="p-2 bg-background-elevated border border-border-subtle rounded hover:bg-background-light/20 transition-colors text-text"
+            aria-label="Retry loading directory"
+            className="p-2 bg-background-elevated border border-border-subtle rounded-lg hover:bg-background-elevated/80 transition-colors text-text cursor-pointer"
           >
-            <RefreshCw size={12} />
+            <RefreshCw size={14} />
           </button>
         </div>
       )}
 
-      {/* 2. Top Analytics Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        {cardConfigs.map((card) => {
-          const item = stats[card.key];
-          return (
-            <div
-              key={card.key}
-              className="bg-background-elevated border border-border-subtler p-3 flex flex-col justify-between hover:border-border-subtle transition-all rounded-sm group relative overflow-hidden"
-            >
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-[8px] font-black uppercase tracking-[0.15em] text-text-subtle truncate max-w-[80%]">
-                  {card.label}
-                </span>
-                <div className="p-1 rounded bg-background-dark/40 border border-border-subtler">
-                  {card.icon}
-                </div>
-              </div>
-
-              <div className="flex items-baseline gap-1 mt-1 leading-none">
-                <span className="text-xl font-black text-text">
-                  {item.count.toLocaleString()}
-                </span>
-                <span
-                  className={`text-[8px] font-black tracking-wide leading-none flex items-center ${getTrendColor(card.key, item.growth)}`}
-                >
-                  {item.growth >= 0 ? '↑' : '↓'} {Math.abs(item.growth)}%
-                </span>
-              </div>
-
-              <div className="h-10 mt-3 -mx-3 -mb-3 overflow-hidden">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart
-                    data={item.trend || []}
-                    margin={{ top: 5, right: 0, left: 0, bottom: 0 }}
-                  >
-                    <defs>
-                      <linearGradient
-                        id={`grad_${card.key}`}
-                        x1="0"
-                        y1="0"
-                        x2="0"
-                        y2="1"
-                      >
-                        <stop
-                          offset="5%"
-                          stopColor={card.color}
-                          stopOpacity={0.25}
-                        />
-                        <stop
-                          offset="95%"
-                          stopColor={card.color}
-                          stopOpacity={0}
-                        />
-                      </linearGradient>
-                    </defs>
-                    <Area
-                      type="monotone"
-                      dataKey="val"
-                      stroke={card.color}
-                      strokeWidth={1}
-                      fillOpacity={1}
-                      fill={`url(#grad_${card.key})`}
-                      dot={false}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          );
-        })}
-
-        {/* MFA Card (Special layout with progress bar) */}
-        <div className="bg-background-elevated border border-border-subtler p-3 flex flex-col justify-between hover:border-border-subtle transition-all rounded-sm group">
-          <div className="flex justify-between items-center mb-1">
-            <span className="text-[8px] font-black uppercase tracking-[0.15em] text-text-subtle">
-              MFA Enabled
+      {/* 2. Compact Horizontal Metrics Strip */}
+      <div className="bg-card border border-border-subtle rounded-xl p-4 sm:p-5 shadow-xs grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-border-subtle/50">
+        {/* Metric 1: Project Members */}
+        <div className="py-3 sm:py-0 px-2 sm:px-5 first:pt-0 sm:first:pl-0 last:pb-0 sm:last:pr-0 flex flex-col justify-between gap-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-text-subtle">
+              Project Members
             </span>
-            <div className="p-1 rounded bg-background-dark/40 border border-border-subtler">
-              <ShieldCheck size={14} className="text-blue-400" />
-            </div>
+            <Users size={15} className="text-text-subtle shrink-0" />
           </div>
-
-          <div className="flex items-baseline gap-1 mt-1 leading-none">
-            <span className="text-xl font-black text-text">
-              {stats.mfaEnabled.count.toLocaleString()}
-            </span>
-            <span className="text-[8px] font-bold text-text-subtle uppercase tracking-widest leading-none">
-              ({stats.mfaEnabled.percentage}%)
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-bold tracking-tight text-text">
+              {data.total.toLocaleString()}
             </span>
           </div>
-
-          <div className="mt-4 pb-1">
-            <div className="w-full bg-background-elevated h-1.5 rounded-none overflow-hidden border border-border-subtler">
-              <div
-                className="bg-blue-500 h-full transition-all duration-700"
-                style={{ width: `${stats.mfaEnabled.percentage}%` }}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Main Directory Table */}
-      <div className="bg-background-light border border-border-subtler flex-1 flex flex-col min-h-[400px]">
-        {/* Table Title and Actions */}
-        <div className="p-4 border-b border-border-subtler flex justify-between items-center bg-background-elevated/40">
-          <h2 className="text-[10px] font-black uppercase tracking-widest text-text-subtle">
-            Member List ({data.total})
-          </h2>
-          <span className="text-[8px] font-black text-text-subtler uppercase tracking-widest">
-            Last Updated: {formatLastActive(lastUpdated)}
+          <span className="text-[11px] text-text-subtle">
+            Total assigned to this project
           </span>
         </div>
 
-        {/* Combined User Table */}
-        <div className="flex-1 overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[900px]">
+        {/* Metric 2: Active Members */}
+        <div className="py-3 sm:py-0 px-2 sm:px-5 first:pt-0 sm:first:pl-0 last:pb-0 sm:last:pr-0 flex flex-col justify-between gap-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-text-subtle">
+              Active Members
+            </span>
+            <CheckCircle size={15} className="text-text-subtle shrink-0" />
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-bold tracking-tight text-text">
+              {activeMembersCount.toLocaleString()}
+            </span>
+            {data.total > 0 && (
+              <span className="text-xs text-text-subtle font-medium">
+                ({Math.round((activeMembersCount / data.total) * 100)}%)
+              </span>
+            )}
+          </div>
+          <span className="text-[11px] text-text-subtle">
+            Active contributors
+          </span>
+        </div>
+
+        {/* Metric 3: Assigned Teams */}
+        <div className="py-3 sm:py-0 px-2 sm:px-5 first:pt-0 sm:first:pl-0 last:pb-0 sm:last:pr-0 flex flex-col justify-between gap-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-text-subtle">
+              Assigned Teams
+            </span>
+            <Layers size={15} className="text-text-subtle shrink-0" />
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-bold tracking-tight text-text">
+              {assignedTeamsCount > 0
+                ? assignedTeamsCount.toLocaleString()
+                : '—'}
+            </span>
+          </div>
+          <span className="text-[11px] text-text-subtle">
+            {assignedTeamsCount > 0
+              ? `${assignedTeamsCount} active ${assignedTeamsCount === 1 ? 'squad' : 'squads'}`
+              : 'No dedicated squads assigned'}
+          </span>
+        </div>
+      </div>
+
+      {/* 3. Main Member Directory Table */}
+      <div className="bg-card border border-border-subtle rounded-xl shadow-xs overflow-hidden flex flex-col">
+        {/* Table Title and Actions */}
+        <div className="p-4 sm:px-5 sm:py-3.5 border-b border-border-subtle/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-background-elevated/30">
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-semibold text-text">
+              Member Directory
+            </h2>
+            <span className="text-xs text-text-subtle font-medium bg-background-elevated px-2 py-0.5 rounded-full border border-border-subtle/50">
+              {data.total} {data.total === 1 ? 'member' : 'members'}
+            </span>
+          </div>
+          {lastUpdated && (
+            <span className="text-xs text-text-subtle">
+              Last synced: {formatLastActive(lastUpdated)}
+            </span>
+          )}
+        </div>
+
+        {/* User Table (Redundant Workspace Project column and checkboxes removed) */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse min-w-[760px]">
             <thead>
-              <tr className="text-[7px] text-text-subtle uppercase font-black tracking-[0.2em] border-b border-border-subtler bg-background-elevated/20 select-none">
-                <th className="py-2.5 px-4 w-10">
-                  <input
-                    type="checkbox"
-                    className="accent-primary h-3 w-3 bg-background border border-border-subtle rounded-sm cursor-pointer focus:outline-none"
-                    disabled
-                  />
-                </th>
+              <tr className="text-xs font-medium text-text-subtle border-b border-border-subtle/60 bg-background-elevated/20 select-none">
                 <th
-                  className="py-2.5 px-4 cursor-pointer hover:text-text transition-colors"
+                  scope="col"
+                  className="py-3 px-4 cursor-pointer hover:text-text transition-colors"
                   onClick={() => handleSort('name')}
                 >
-                  User{' '}
-                  {sortConfig.key === 'name' &&
-                    (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                  <div className="flex items-center gap-1.5">
+                    <span>Member</span>
+                    {sortConfig.key === 'name' && (
+                      <span>
+                        {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                      </span>
+                    )}
+                  </div>
                 </th>
                 <th
-                  className="py-2.5 px-4 cursor-pointer hover:text-text transition-colors"
+                  scope="col"
+                  className="py-3 px-4 cursor-pointer hover:text-text transition-colors"
                   onClick={() => handleSort('email')}
                 >
-                  Email{' '}
-                  {sortConfig.key === 'email' &&
-                    (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                  <div className="flex items-center gap-1.5">
+                    <span>Email</span>
+                    {sortConfig.key === 'email' && (
+                      <span>
+                        {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                      </span>
+                    )}
+                  </div>
                 </th>
                 <th
-                  className="py-2.5 px-4 cursor-pointer hover:text-text transition-colors"
+                  scope="col"
+                  className="py-3 px-4 cursor-pointer hover:text-text transition-colors"
                   onClick={() => handleSort('role')}
                 >
-                  Role{' '}
-                  {sortConfig.key === 'role' &&
-                    (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                  <div className="flex items-center gap-1.5">
+                    <span>Role</span>
+                    {sortConfig.key === 'role' && (
+                      <span>
+                        {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                      </span>
+                    )}
+                  </div>
                 </th>
                 <th
-                  className="py-2.5 px-4 cursor-pointer hover:text-text transition-colors"
-                  onClick={() => handleSort('assignedProjectId')}
-                >
-                  Workspace Project{' '}
-                  {sortConfig.key === 'assignedProjectId' &&
-                    (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                </th>
-                <th
-                  className="py-2.5 px-4 cursor-pointer hover:text-text transition-colors"
+                  scope="col"
+                  className="py-3 px-4 cursor-pointer hover:text-text transition-colors"
                   onClick={() => handleSort('status')}
                 >
-                  Status{' '}
-                  {sortConfig.key === 'status' &&
-                    (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                  <div className="flex items-center gap-1.5">
+                    <span>Status</span>
+                    {sortConfig.key === 'status' && (
+                      <span>
+                        {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                      </span>
+                    )}
+                  </div>
                 </th>
                 <th
-                  className="py-2.5 px-4 cursor-pointer hover:text-text transition-colors"
+                  scope="col"
+                  className="py-3 px-4 cursor-pointer hover:text-text transition-colors"
                   onClick={() => handleSort('mfaEnabled')}
                 >
-                  MFA{' '}
-                  {sortConfig.key === 'mfaEnabled' &&
-                    (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                  <div className="flex items-center gap-1.5">
+                    <span>MFA</span>
+                    {sortConfig.key === 'mfaEnabled' && (
+                      <span>
+                        {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                      </span>
+                    )}
+                  </div>
                 </th>
                 <th
-                  className="py-2.5 px-4 cursor-pointer hover:text-text transition-colors"
+                  scope="col"
+                  className="py-3 px-4 cursor-pointer hover:text-text transition-colors"
                   onClick={() => handleSort('lastActive')}
                 >
-                  Last Active{' '}
-                  {sortConfig.key === 'lastActive' &&
-                    (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                  <div className="flex items-center gap-1.5">
+                    <span>Last active</span>
+                    {sortConfig.key === 'lastActive' && (
+                      <span>
+                        {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                      </span>
+                    )}
+                  </div>
                 </th>
                 <th
-                  className="py-2.5 px-4 cursor-pointer hover:text-text transition-colors"
+                  scope="col"
+                  className="py-3 px-4 cursor-pointer hover:text-text transition-colors"
                   onClick={() => handleSort('joinedOn')}
                 >
-                  Joined On{' '}
-                  {sortConfig.key === 'joinedOn' &&
-                    (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                  <div className="flex items-center gap-1.5">
+                    <span>Joined on</span>
+                    {sortConfig.key === 'joinedOn' && (
+                      <span>
+                        {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                      </span>
+                    )}
+                  </div>
                 </th>
-                <th className="py-2.5 px-4 text-right">Actions</th>
+                {canPerformAnyAction && (
+                  <th scope="col" className="py-3 px-4 text-right">
+                    Actions
+                  </th>
+                )}
               </tr>
             </thead>
-            <tbody className="divide-y divide-border-subtler text-[9.5px] font-bold text-text">
+            <tbody className="divide-y divide-border-subtle/30 text-xs text-text">
               {sortedMembers.map((member) => (
                 <tr
                   key={member.id}
-                  className="hover:bg-background-elevated/20 transition-colors leading-tight align-middle"
+                  className="hover:bg-background-elevated/20 transition-colors align-middle"
                 >
-                  <td className="py-3 px-4">
-                    <input
-                      type="checkbox"
-                      className="accent-primary h-3 w-3 bg-background border border-border-subtle rounded-sm cursor-pointer focus:outline-none"
-                      disabled
-                    />
-                  </td>
-
                   {/* User Avatar + Name */}
-                  <td className="py-3 px-4 flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-sm bg-background-elevated border border-border-subtle text-text flex items-center justify-center font-black uppercase text-[10px] shrink-0 overflow-hidden select-none">
-                      {member.profilePicture ? (
-                        <img
-                          src={member.profilePicture}
-                          alt={member.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        member.name?.slice(0, 2)
-                      )}
+                  <td className="py-3 px-4">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-full bg-background-elevated border border-border-subtle text-text flex items-center justify-center font-medium text-xs shrink-0 overflow-hidden select-none">
+                        {member.profilePicture ? (
+                          <img
+                            src={member.profilePicture}
+                            alt={member.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          member.name?.slice(0, 2)?.toUpperCase() || 'U'
+                        )}
+                      </div>
+                      <span className="font-medium text-text truncate max-w-[180px]">
+                        {member.name}
+                      </span>
                     </div>
-                    <span className="font-black text-text hover:text-primary transition-colors cursor-default">
-                      {member.name}
-                    </span>
                   </td>
 
-                  <td className="py-3 px-4 text-text/70 select-all font-medium">
+                  <td className="py-3 px-4 text-text-subtle select-all">
                     {member.email}
                   </td>
 
                   {/* Role */}
                   <td className="py-3 px-4">
                     <span
-                      className={`px-2 py-0.5 text-[7px] font-black uppercase tracking-wider rounded-[1px] leading-none whitespace-nowrap ${getRoleBadgeClass(
+                      className={`inline-flex items-center px-2 py-0.5 text-xs font-normal rounded-md ${getRoleBadgeClass(
                         member.role,
                         member.jobTitle
                       )}`}
@@ -732,20 +762,10 @@ const ProjectTeam = () => {
                     </span>
                   </td>
 
-                  {/* Workspace Project */}
-                  <td className="py-3 px-4">
-                    <span className="flex items-center gap-1.5 uppercase tracking-widest text-[8px] font-black text-text-subtle">
-                      <Box size={10} className="text-text-subtler shrink-0" />
-                      <span className="truncate max-w-[150px]">
-                        {data.projectName}
-                      </span>
-                    </span>
-                  </td>
-
-                  {/* Status Badge */}
+                  {/* Account Status Badge */}
                   <td className="py-3 px-4">
                     <span
-                      className={`px-2 py-0.5 text-[7px] font-black uppercase tracking-wider rounded-[1px] leading-none whitespace-nowrap ${getStatusBadgeClass(
+                      className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-md ${getStatusBadgeClass(
                         member.status
                       )}`}
                     >
@@ -756,151 +776,86 @@ const ProjectTeam = () => {
                   {/* MFA */}
                   <td className="py-3 px-4">
                     {member.mfaEnabled ? (
-                      <ShieldCheck
-                        size={13}
-                        className="text-blue-400 fill-blue-500/10 shrink-0"
-                      />
+                      <span
+                        className="inline-flex items-center gap-1 text-xs text-status-success"
+                        title="MFA Enabled"
+                        aria-label="MFA Enabled"
+                      >
+                        <ShieldCheck size={14} className="shrink-0" />
+                        <span className="hidden lg:inline text-xs">
+                          Enabled
+                        </span>
+                      </span>
                     ) : (
-                      <span className="text-text-subtler font-black">—</span>
+                      <span
+                        className="text-xs text-text-subtle/50"
+                        title="MFA Disabled"
+                        aria-label="MFA Disabled"
+                      >
+                        —
+                      </span>
                     )}
                   </td>
 
-                  <td className="py-3 px-4 text-text-subtle uppercase tracking-wide text-[8px] whitespace-nowrap">
+                  <td className="py-3 px-4 text-text-subtle text-xs whitespace-nowrap">
                     {formatLastActive(member.lastActive)}
                   </td>
 
-                  <td className="py-3 px-4 text-text-subtler uppercase tracking-wide text-[8px] whitespace-nowrap">
+                  <td className="py-3 px-4 text-text-subtle text-xs whitespace-nowrap">
                     {formatJoinedOn(member.createdAt || member.joinedOn)}
                   </td>
 
                   {/* Actions Dropdown */}
-                  <td className="py-3 px-4 text-right relative">
-                    <button
-                      aria-label="Actions menu"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setActiveDropdownId(
-                          activeDropdownId === member.id ? null : member.id
-                        );
-                        setActiveProjectMenuId(null);
-                      }}
-                      className="p-1 text-text-subtle hover:text-text rounded hover:bg-background-elevated transition-colors cursor-pointer"
-                    >
-                      <MoreVertical size={13} />
-                    </button>
-
-                    {activeDropdownId === member.id && (
-                      <div
-                        onClick={(e) => e.stopPropagation()}
-                        className="absolute right-4 mt-1 w-44 bg-background-elevated border border-border-subtle rounded-sm shadow-2xl z-50 text-left py-1 animate-in fade-in zoom-in-95 duration-100"
+                  {canPerformAnyAction && (
+                    <td className="py-3 px-4 text-right">
+                      <button
+                        aria-label={`Actions for ${member.name}`}
+                        aria-haspopup="menu"
+                        aria-expanded={menuAnchor?.member?.id === member.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (menuAnchor?.member?.id === member.id) {
+                            setMenuAnchor(null);
+                            setIsSubmenuOpen(false);
+                            setSubmenuTriggerEl(null);
+                          } else {
+                            setMenuAnchor({ member, triggerEl: e.currentTarget });
+                            setIsSubmenuOpen(false);
+                            setSubmenuTriggerEl(null);
+                          }
+                        }}
+                        className={`p-1.5 rounded-md transition-colors cursor-pointer ${
+                          menuAnchor?.member?.id === member.id
+                            ? 'text-text bg-background-elevated'
+                            : 'text-text-subtle hover:text-text hover:bg-background-elevated'
+                        }`}
                       >
-                        {/* Project Allocation Sub-menu Trigger */}
-                        <div className="relative">
-                          <button
-                            onClick={() =>
-                              setActiveProjectMenuId(
-                                activeProjectMenuId === member.id
-                                  ? null
-                                  : member.id
-                              )
-                            }
-                            className="w-full px-3 py-2 text-[8px] font-black uppercase tracking-widest text-text-muted hover:text-text hover:bg-background-light/20 flex items-center justify-between cursor-pointer"
-                          >
-                            Reassign Project
-                            <ChevronRight size={10} />
-                          </button>
-
-                          {activeProjectMenuId === member.id && (
-                            <div className="absolute right-full top-0 mr-1 w-48 bg-background-elevated border border-border-subtle rounded-sm shadow-2xl py-1 z-50 overflow-y-auto max-h-48">
-                              <button
-                                onClick={() =>
-                                  handleAssignProject(member.id, null)
-                                }
-                                className="w-full px-3 py-2 text-[8px] font-black uppercase tracking-widest text-text-muted hover:text-text hover:bg-background-light/20 text-left flex justify-between items-center cursor-pointer"
-                              >
-                                Remove from Project
-                                {!member.assignedProjectId && (
-                                  <Check size={10} className="text-primary" />
-                                )}
-                              </button>
-                              {allProjects.map((p) => (
-                                <button
-                                  key={p.id}
-                                  onClick={() =>
-                                    handleAssignProject(member.id, p.id)
-                                  }
-                                  className="w-full px-3 py-2 text-[8px] font-black uppercase tracking-widest text-text-muted hover:text-text hover:bg-background-light/20 text-left flex justify-between items-center cursor-pointer"
-                                >
-                                  <span className="truncate max-w-[120px]">
-                                    {p.name}
-                                  </span>
-                                  {(member.assignedProjectId?.id === p.id ||
-                                    member.assignedProjectId?._id === p.id ||
-                                    member.assignedProjectId === p.id) && (
-                                    <Check size={10} className="text-primary" />
-                                  )}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Deactivate / Reactivate User */}
-                        {user?.id !== member.id && (
-                          <button
-                            onClick={() => {
-                              setActiveDropdownId(null);
-                              setModalConfig({
-                                isOpen: true,
-                                title:
-                                  member.status === 'Deactivated'
-                                    ? 'Reactivate User'
-                                    : 'Deactivate User',
-                                message: `Are you sure you want to ${
-                                  member.status === 'Deactivated'
-                                    ? 'reactivate'
-                                    : 'deactivate'
-                                } ${member.name}? This will update their login access.`,
-                                confirmText:
-                                  member.status === 'Deactivated'
-                                    ? 'Reactivate'
-                                    : 'Deactivate',
-                                type:
-                                  member.status === 'Deactivated'
-                                    ? 'info'
-                                    : 'danger',
-                                onConfirm: () =>
-                                  handleToggleDeactivate(
-                                    member.id,
-                                    member.status
-                                  ),
-                              });
-                            }}
-                            className="w-full px-3 py-2 text-[8px] font-black uppercase tracking-widest text-text-muted hover:text-text hover:bg-background-light/20 text-left cursor-pointer"
-                          >
-                            {member.status === 'Deactivated'
-                              ? 'Reactivate Member'
-                              : 'Deactivate Member'}
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </td>
+                        <MoreVertical size={14} />
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
 
               {sortedMembers.length === 0 && (
                 <tr>
-                  <td colSpan="10" className="py-20 text-center">
+                  <td
+                    colSpan={canPerformAnyAction ? 8 : 7}
+                    className="py-12 text-center"
+                  >
                     <AlertTriangle
-                      size={32}
-                      className="mx-auto text-text-subtler mb-4 animate-bounce"
+                      size={28}
+                      className="mx-auto text-text-subtle/60 mb-3"
                     />
-                    <h3 className="text-xs font-black uppercase tracking-widest text-text">
-                      No personnel records found
+                    <h3 className="text-sm font-semibold text-text">
+                      {searchTerm
+                        ? 'No matching members found'
+                        : 'No members assigned to this project'}
                     </h3>
-                    <p className="text-[9px] font-black uppercase tracking-widest text-text-subtle mt-1">
-                      No project members matched the search keywords.
+                    <p className="text-xs text-text-subtle mt-1 max-w-sm mx-auto">
+                      {searchTerm
+                        ? `No project members matched "${searchTerm}". Try adjusting your search keyword.`
+                        : 'Team members will appear here once allocated to this project.'}
                     </p>
                   </td>
                 </tr>
@@ -910,28 +865,28 @@ const ProjectTeam = () => {
         </div>
 
         {/* 4. Pagination Control Footer */}
-        <div className="p-4 border-t border-border-subtler flex flex-col sm:flex-row items-center justify-between gap-4 bg-background-elevated/20 text-[9px] font-black uppercase tracking-wider text-text-subtle select-none">
+        <div className="p-4 sm:px-5 border-t border-border-subtle/60 flex flex-col sm:flex-row items-center justify-between gap-4 bg-background-elevated/20 text-xs text-text-subtle select-none">
           <div>
             {data.total > 0 ? (
               <span>
                 Showing {(currentPage - 1) * pageSize + 1} to{' '}
                 {Math.min(currentPage * pageSize, data.total)} of {data.total}{' '}
-                users
+                {data.total === 1 ? 'member' : 'members'}
               </span>
             ) : (
-              <span>Showing 0 to 0 of 0 users</span>
+              <span>Showing 0 members</span>
             )}
           </div>
 
-          {/* Page numbers list */}
           {totalPages > 1 && (
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1">
               <button
+                aria-label="Previous page"
                 disabled={currentPage === 1}
                 onClick={() => setCurrentPage((c) => Math.max(1, c - 1))}
-                className="w-7 h-7 flex items-center justify-center border border-border-subtle hover:border-border-subtle/55 disabled:opacity-30 rounded-[1px] transition-colors cursor-pointer text-text disabled:cursor-not-allowed"
+                className="w-8 h-8 flex items-center justify-center border border-border-subtle hover:bg-background-elevated disabled:opacity-40 rounded-lg transition-colors cursor-pointer text-text disabled:cursor-not-allowed"
               >
-                <ChevronLeft size={10} />
+                <ChevronLeft size={14} />
               </button>
 
               {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => {
@@ -943,7 +898,7 @@ const ProjectTeam = () => {
                 ) {
                   if (p === 2 || p === totalPages - 1) {
                     return (
-                      <span key={p} className="px-1 text-text-subtler">
+                      <span key={p} className="px-1.5 text-text-subtle">
                         ...
                       </span>
                     );
@@ -954,10 +909,10 @@ const ProjectTeam = () => {
                   <button
                     key={p}
                     onClick={() => setCurrentPage(p)}
-                    className={`w-7 h-7 flex items-center justify-center border rounded-[1px] font-black transition-all cursor-pointer ${
+                    className={`w-8 h-8 flex items-center justify-center border text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                       currentPage === p
                         ? 'bg-primary border-primary text-background-dark'
-                        : 'border-border-subtle hover:border-border-subtle/55 text-text'
+                        : 'border-border-subtle hover:bg-background-elevated text-text'
                     }`}
                   >
                     {p}
@@ -966,40 +921,174 @@ const ProjectTeam = () => {
               })}
 
               <button
+                aria-label="Next page"
                 disabled={currentPage === totalPages}
                 onClick={() =>
                   setCurrentPage((c) => Math.min(totalPages, c + 1))
                 }
-                className="w-7 h-7 flex items-center justify-center border border-border-subtle hover:border-border-subtle/55 disabled:opacity-30 rounded-[1px] transition-colors cursor-pointer text-text disabled:cursor-not-allowed"
+                className="w-8 h-8 flex items-center justify-center border border-border-subtle hover:bg-background-elevated disabled:opacity-40 rounded-lg transition-colors cursor-pointer text-text disabled:cursor-not-allowed"
               >
-                <ChevronRight size={10} />
+                <ChevronRight size={14} />
               </button>
             </div>
           )}
 
-          {/* Page size dropdown */}
           <div className="relative">
             <select
+              aria-label="Members per page"
               value={pageSize}
               onChange={(e) => {
                 setPageSize(Number(e.target.value));
                 setCurrentPage(1);
               }}
-              className="bg-background-elevated border border-border-subtle hover:border-border-subtle/55 text-[9px] font-black uppercase tracking-wider text-text pl-3.5 pr-8 py-1.5 focus:outline-none focus:border-primary/50 cursor-pointer rounded-[1px] appearance-none"
+              className="bg-background-elevated border border-border-subtle text-xs text-text pl-3 pr-8 py-1.5 focus:outline-none focus:border-primary/50 cursor-pointer rounded-lg appearance-none"
             >
               {[5, 10, 20, 50].map((sz) => (
                 <option key={sz} value={sz}>
-                  {sz} / Page
+                  {sz} / page
                 </option>
               ))}
             </select>
             <ChevronRight
-              size={10}
-              className="absolute right-3 top-1/2 -translate-y-1/2 rotate-90 text-text-subtle pointer-events-none"
+              size={12}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 rotate-90 text-text-subtle pointer-events-none"
             />
           </div>
         </div>
       </div>
+
+      {/* 5. Portal-Based Actions Menu & Submenu */}
+      {menuAnchor && (
+        <ActionPortalMenu
+          triggerEl={menuAnchor.triggerEl}
+          isOpen={Boolean(menuAnchor)}
+          onClose={() => {
+            setMenuAnchor(null);
+            setIsSubmenuOpen(false);
+            setSubmenuTriggerEl(null);
+          }}
+          width={196}
+        >
+          {/* Project Reassignment Sub-menu Trigger */}
+          {canManageProjects && (
+            <button
+              ref={(node) => {
+                if (node && !submenuTriggerEl) {
+                  setSubmenuTriggerEl(node);
+                }
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setSubmenuTriggerEl(e.currentTarget);
+                setIsSubmenuOpen((prev) => !prev);
+              }}
+              onMouseEnter={(e) => {
+                setSubmenuTriggerEl(e.currentTarget);
+                setIsSubmenuOpen(true);
+              }}
+              aria-haspopup="menu"
+              aria-expanded={isSubmenuOpen}
+              className="w-full px-3 py-2 text-xs font-medium text-text hover:bg-background-elevated flex items-center justify-between cursor-pointer transition-colors"
+            >
+              <span>Reassign Project</span>
+              <ChevronRight
+                size={13}
+                className={`text-text-subtle transition-transform ${isSubmenuOpen ? 'translate-x-0.5' : ''}`}
+              />
+            </button>
+          )}
+
+          {/* Deactivate / Reactivate User */}
+          {canManageUsers && user?.id !== menuAnchor.member.id && (
+            <button
+              onClick={() => {
+                const targetMember = menuAnchor.member;
+                setMenuAnchor(null);
+                setIsSubmenuOpen(false);
+                setSubmenuTriggerEl(null);
+                setModalConfig({
+                  isOpen: true,
+                  title:
+                    targetMember.status === 'Deactivated'
+                      ? 'Reactivate User'
+                      : 'Deactivate User',
+                  message: `Are you sure you want to ${
+                    targetMember.status === 'Deactivated'
+                      ? 'reactivate'
+                      : 'deactivate'
+                  } ${targetMember.name}? This will update their login access.`,
+                  confirmText:
+                    targetMember.status === 'Deactivated'
+                      ? 'Reactivate'
+                      : 'Deactivate',
+                  type:
+                    targetMember.status === 'Deactivated'
+                      ? 'info'
+                      : 'danger',
+                  onConfirm: () =>
+                    handleToggleDeactivate(
+                      targetMember.id,
+                      targetMember.status
+                    ),
+                });
+              }}
+              className={`w-full px-3 py-2 text-xs font-medium text-left cursor-pointer hover:bg-background-elevated transition-colors ${
+                canManageProjects
+                  ? 'border-t border-border-subtle/40 mt-1 pt-1.5'
+                  : ''
+              } ${
+                menuAnchor.member.status === 'Deactivated'
+                  ? 'text-status-success'
+                  : 'text-status-error'
+              }`}
+            >
+              {menuAnchor.member.status === 'Deactivated'
+                ? 'Reactivate Member'
+                : 'Deactivate Member'}
+            </button>
+          )}
+        </ActionPortalMenu>
+      )}
+
+      {/* Submenu for Project Reassignment */}
+      {menuAnchor && canManageProjects && isSubmenuOpen && submenuTriggerEl && (
+        <ActionSubmenuPortal
+          parentTriggerEl={submenuTriggerEl}
+          isOpen={isSubmenuOpen}
+          onClose={() => setIsSubmenuOpen(false)}
+          width={216}
+          maxHeight={240}
+        >
+          <button
+            onClick={() => handleAssignProject(menuAnchor.member.id, null)}
+            className="w-full px-3 py-2 text-xs font-medium text-text hover:bg-background-elevated text-left flex justify-between items-center cursor-pointer transition-colors"
+          >
+            <span>Remove from Project</span>
+            {!menuAnchor.member.assignedProjectId && (
+              <Check size={12} className="text-primary shrink-0 ml-2" />
+            )}
+          </button>
+          {allProjects.map((p) => {
+            const isAssigned =
+              menuAnchor.member.assignedProjectId?.id === p.id ||
+              menuAnchor.member.assignedProjectId?._id === p.id ||
+              menuAnchor.member.assignedProjectId === p.id;
+
+            return (
+              <button
+                key={p.id}
+                onClick={() => handleAssignProject(menuAnchor.member.id, p.id)}
+                className="w-full px-3 py-2 text-xs font-medium text-text hover:bg-background-elevated text-left flex justify-between items-center cursor-pointer transition-colors"
+              >
+                <span className="truncate max-w-[150px]">{p.name}</span>
+                {isAssigned && (
+                  <Check size={12} className="text-primary shrink-0 ml-2" />
+                )}
+              </button>
+            );
+          })}
+        </ActionSubmenuPortal>
+      )}
 
       {/* Confirmation Modals */}
       <TacticalModal

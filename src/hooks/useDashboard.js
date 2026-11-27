@@ -68,8 +68,8 @@ export const useDashboard = (initialSprintId = null) => {
     queryFn: () =>
       SprintService.getSprintStats(selectedSprintId).then((res) => res.data),
     enabled: authReady && !!selectedSprintId,
-    staleTime: 5 * 60 * 1000, // 5 min — sprint analytics are per-sprint snapshots
-    gcTime: 15 * 60 * 1000,
+    staleTime: 15 * 1000, // 15s — sync with live sprint tasks
+    gcTime: 10 * 60 * 1000,
   });
 
   const actionsQuery = useQuery({

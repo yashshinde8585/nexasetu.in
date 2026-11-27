@@ -1850,9 +1850,17 @@ const Home = () => {
           {/* Top Section */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-start gap-8 md:gap-12 pb-8 border-b border-border-subtle">
             <div className="max-w-md">
-              <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight uppercase mb-3 text-text">
-                NexaSetu
-              </h2>
+              <Link
+                to="/"
+                className="inline-flex items-center mb-4 focus:outline-none"
+                aria-label="NexaSetu Home"
+              >
+                <img
+                  src="/Logo.svg"
+                  alt="NexaSetu"
+                  className="h-8 md:h-9 w-auto object-contain"
+                />
+              </Link>
               <p className="text-text-muted text-xs sm:text-sm font-normal leading-relaxed">
                 Project management for development teams. Organize tasks, track
                 sprints, and keep your team&apos;s work moving.

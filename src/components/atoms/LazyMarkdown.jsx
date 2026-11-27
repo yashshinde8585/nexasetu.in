@@ -7,11 +7,9 @@ const LazyMarkdown = (props) => {
   return (
     <Suspense
       fallback={
-        <div className="flex items-center gap-2 py-4">
-          <Loader2 className="animate-spin text-primary/40" size={16} />
-          <span className="text-[10px] font-black uppercase tracking-widest text-white/20">
-            Rendering...
-          </span>
+        <div className="flex items-center gap-2 py-3 text-text-subtle text-xs font-medium">
+          <Loader2 className="animate-spin text-primary" size={14} />
+          <span>Rendering content...</span>
         </div>
       }
     >
